@@ -444,7 +444,9 @@ const buyPrice=id=>has(O.price[id])?+O.price[id]:mktBuy(id);
 const sellPrice=id=>has(O.price[id])?+O.price[id]:item(id).a;
 const qtyOf=(r,id,q)=>has(O.qty[r.id+":"+id])?+O.qty[r.id+":"+id]:q;
 const oqOf=r=>has(O.oq[r.id])?+O.oq[r.id]:r.oq;
-const insOf=r=>r.via&&O.via[r.id]==="buy"?[[r.via,1],...r.up]:r.ins;
+function viaRoute(r){if(!r.via)return null;const m=O.via[r.id]||"auto";if(m!=="auto")return m;
+  const cc=r.base.reduce((t,[i,q0])=>t+buyPrice(i)*qtyOf(r,i,q0),0),bc=buyPrice(r.via)*qtyOf(r,r.via,1);return bc<cc?"buy":"craft"}
+const insOf=r=>r.via&&viaRoute(r)==="buy"?[[r.via,1],...r.up]:r.ins;
 const soldOf=r=>has(O.sold[r.out])?+O.sold[r.out]:soldRate(r.out);
 
 function calc(r){
@@ -545,7 +547,7 @@ function renderCrafts(){
   const all=rows(),keep=x=>x.c.profit>0||open.has(x.r.id),win=all.filter(keep).sort((a,b)=>key(b)-key(a)),lose=all.filter(x=>!keep(x));
   let h=`<div class="lhead"><span>Craft</span><span>Profit / craft</span><span>Cost</span><span>Sells for</span><span>Margin</span></div>`;
   h+=win.map(({r,c})=>`<div class="row${c.profit<=0?" loss":""}" tabindex="0" data-id="${r.id}" aria-expanded="${open.has(r.id)}">
-      <div class="nmwrap"><button class="star${O.fav&&O.fav[r.id]?" on":""}" data-fav="${r.id}" aria-pressed="${!!(O.fav&&O.fav[r.id])}" aria-label="${O.fav&&O.fav[r.id]?"Remove from":"Add to"} favourites" title="${O.fav&&O.fav[r.id]?"Remove from":"Add to"} favourites">${O.fav&&O.fav[r.id]?"★":"☆"}</button><div><div class="nm">${esc(r.name)}</div><div class="meta">${METH[r.m]}${c.noList?" · nothing listed, base price used":""}</div><div class="mob">Cost ${fmt(c.cost)} · sells for ${fmt(c.oq*c.sell)}</div>${S.mode==="ask"?shortHtml(r):""}</div></div>
+      <div class="nmwrap"><button class="star${O.fav&&O.fav[r.id]?" on":""}" data-fav="${r.id}" aria-pressed="${!!(O.fav&&O.fav[r.id])}" aria-label="${O.fav&&O.fav[r.id]?"Remove from":"Add to"} favourites" title="${O.fav&&O.fav[r.id]?"Remove from":"Add to"} favourites">${O.fav&&O.fav[r.id]?"★":"☆"}</button><div><div class="nm">${esc(r.name)}</div><div class="meta">${METH[r.m]}${r.via?` · ${viaRoute(r)==="buy"?"buying":"crafting"} ${esc(item(r.via).n)}${(O.via[r.id]||"auto")==="auto"?" (cheaper)":""}`:""}${c.noList?" · nothing listed, base price used":""}</div><div class="mob">Cost ${fmt(c.cost)} · sells for ${fmt(c.oq*c.sell)}</div>${S.mode==="ask"?shortHtml(r):""}</div></div>
       <div class="n big">${fmt(c.profit)}</div><div class="n dim c-cost">${fmt(c.cost)}</div><div class="n dim c-sell">${fmt(c.oq*c.sell)}</div><div class="n dim c-margin">${Math.round(c.margin*100)}%</div>
     </div>${open.has(r.id)?craftDetail(r,c):""}`).join("")||(S.filter==="fav"&&!Object.keys(O.fav||{}).length?`<div class="empty">No favourites yet. Tap the ☆ next to a craft to add it here.</div>`:`<div class="empty">No profitable craft matches.</div>`);
   if(lose.length)h+=`<div class="sect">${lose.length} craft${lose.length>1?"s":""} lose money at current prices and are hidden.</div>`;
@@ -604,11 +606,12 @@ function craftDetail(r,c){const out=item(r.out),afterTax=c.oq*c.sell*kept();
       <td class="x">×</td><td>${priceInput(id,null,"cell")}</td><td class="tot">${full(buyPrice(id)*q)}</td></tr>`};
   const sub=(list)=>list.reduce((t,[id,q0])=>t+buyPrice(id)*qtyOf(r,id,q0),0);
   let mats,pathBox="";
-  if(r.via){const bn=item(r.via).n,buying=O.via[r.id]==="buy",cc=sub(r.base),bc=buyPrice(r.via),bl=item(r.via).s;
+  if(r.via){const bn=item(r.via).n,mode=O.via[r.id]||"auto",buying=viaRoute(r)==="buy",cc=sub(r.base),bc=buyPrice(r.via),bl=item(r.via).s;
     const cheaper=cc<=bc?"craft":"buy",diff=Math.abs(cc-bc);
     pathBox=`<div class="path"><div class="seg" role="group" aria-label="How to get ${esc(bn)}">
-        <button data-via="${r.id}" data-mode="craft" aria-pressed="${!buying}">Craft ${esc(bn)} from shards</button>
-        <button data-via="${r.id}" data-mode="buy" aria-pressed="${buying}">Buy ${esc(bn)}</button></div>
+        <button data-via="${r.id}" data-mode="auto" aria-pressed="${mode==="auto"}">Cheapest</button>
+        <button data-via="${r.id}" data-mode="craft" aria-pressed="${mode==="craft"}">Craft from shards</button>
+        <button data-via="${r.id}" data-mode="buy" aria-pressed="${mode==="buy"}">Buy ${esc(bn)}</button></div>
       <p class="hint">Crafting ${esc(bn)} costs <b>${fmt(cc)}</b>; buying one costs <b>${bl?fmt(bc):"nothing listed"}</b>${bl?` (${full(bl)} listed)`:""}. ${bl?`${cheaper==="craft"?"Crafting":"Buying"} is cheaper by <b>${fmt(diff)}</b>.`:""}</p></div>`;
     mats=`<tr class="grp"><td colspan="5">Step 1 · ${buying?"Buy":"Craft"} ${esc(bn)}</td></tr>`+(buying?matRow([r.via,1]):r.base.map(matRow).join(""))+
       `<tr class="subt"><td>${buying?"Cup":"Step 1"} cost</td><td></td><td></td><td></td><td class="tot">${fmt(buying?qtyOf(r,r.via,1)*bc:cc)}</td></tr>`+
