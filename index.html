@@ -250,7 +250,10 @@ footer a{color:var(--ink2)}
             <div class="field"><label for="wait">Hours you wait for sales</label><input class="num" type="number" id="wait" min="1" step="1"></div>
             <div class="field"><label for="budget">Your silver to spend</label><input class="num" type="number" id="budget" min="0" step="1000000000"><span class="hint" id="budgetTxt"></span></div>
           </div>
-          <p class="hint">Profit per hour counts only what actually sells within your waiting time, divided by the hours you craft. You list everything at the cheapest current price. Anything already listed at that price sells before yours, so you only sell what buyers take after that queue clears within your waiting time. Sales per hour are averages over the last <b id="soldWin"></b>.</p>
+          <div class="field" style="max-width:520px"><span class="lbl">When others already list at the cheapest price</span>
+            <div class="seg" role="group" aria-label="When others already list at the cheapest price">
+              <button id="uc-on" aria-pressed="true">List one step cheaper</button><button id="uc-off" aria-pressed="false">Wait in line</button></div></div>
+          <p class="hint">Profit per hour counts only what actually sells within your waiting time, divided by the hours you craft. Listings at the same price sell in the order they were listed. By default you list one price step below the cheapest listing so yours sells first; at the market's minimum price you can't, so you wait for the listings ahead of you. Sales per hour are averages over the last <b id="soldWin"></b>.</p>
         </div>
         <div class="list" id="slist"></div>
       </section>
@@ -283,7 +286,7 @@ const fmt=n=>{if(n==null||!isFinite(n))return"–";const a=Math.abs(n),sg=n<0?"�
 const full=n=>n==null||!isFinite(n)?"–":Math.round(n).toLocaleString("en-US");
 const dur=h=>!isFinite(h)?"never":h<1/60?"now":h<1?Math.round(h*60)+" min":h<48?(+h.toFixed(1))+" h":Math.round(h/24)+" days";
 const has=v=>v!=null&&v!=="";
-const DEF={vp:true,fame:0,ring:false,mode:"ask",mastery:400,mpsec:75,simple:7.5,cup:10,cook:1,alch:1.5,hours:1,wait:12,budget:10000000000,filter:"all",sort:"profit",ssort:"sph"};
+const DEF={vp:true,fame:0,ring:false,mode:"ask",mastery:400,mpsec:75,simple:7.5,cup:10,cook:1,alch:1.5,hours:1,wait:12,undercut:true,budget:10000000000,filter:"all",sort:"profit",ssort:"sph"};
 let S={...DEF},O={price:{},qty:{},oq:{},sold:{},via:{}},LIVE=null,liveState="loading",view="crafts",open=new Set(),sopen=new Set(),popen=new Set(),psort={k:"n",d:1};
 const store={get(k){try{return JSON.parse(localStorage.getItem(k)||"null")}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 {const j=store.get("bdoplanner");if(j){S={...DEF,...j.S};O={...O,...j.O}}}
@@ -299,6 +302,7 @@ function soldRate(id){
     if(h>=6&&tt!=null&&t0!=null&&tt>=t0)return(tt-t0)/h}
   return D.sold0[id]!=null?D.sold0[id]:0}
 const soldWindowH=()=>LIVE&&(LIVE.at-D.base.at)/3600>=6?(LIVE.at-D.base.at)/3600:D.sold0h;
+const tick=p=>p>=100?Math.pow(10,Math.floor(Math.log10(p))-2):1;
 const kept=()=>0.65*(1+(S.vp?0.3:0)+(+S.fame)+(S.ring?0.05:0));
 const perMP=()=>{let c=D.mastery[0][1];for(const[m,n] of D.mastery)if(+S.mastery>=m)c=n;return c};
 const secFor=m=>m==="proc"?S.mpsec/perMP():m==="simple"?S.simple:m==="cup"?S.cup:m==="cook"?S.cook:m==="alch"?S.alch:600;
@@ -317,16 +321,19 @@ function calc(r){
   const profit=oq*sell*kept()-cost,unit=oq>0?profit/oq:0;
   // sales model
   const sec=secFor(r.m),timeN=3600/sec*S.hours,budN=cost>0?Math.floor(S.budget/cost):Infinity,crafts=Math.max(0,Math.min(timeN,stockN,budN)),made=crafts*oq,rate=soldOf(r);
-  const listedPrice=out.a,yourPrice=sell;
-  let queue=out.q!=null?out.q:(out.s||0);
-  if(has(O.price[r.out])&&yourPrice<listedPrice)queue=0;
+  const listedPrice=out.a;
+  let queue=out.q!=null?out.q:(out.s||0),saleP=sell,undercut=false;
+  if(has(O.price[r.out])&&sell<listedPrice)queue=0;
   const capFill=out.hi&&listedPrice>=out.hi&&out.b;           // at the price cap with buy orders waiting
   if(capFill)queue=0;
-  const sellable=Math.max(0,rate*S.wait-queue),soldU=Math.min(made,sellable);
-  const earned=Math.max(0,soldU*unit),sph=earned/S.hours;
+  const atFloor=out.lo&&listedPrice<=out.lo;
+  if(S.undercut&&queue>0&&!atFloor&&!has(O.price[r.out])){const st=tick(listedPrice);saleP=Math.max(out.lo||0,listedPrice-st);queue=0;undercut=true}
+  const unitH=oq>0?(oq*saleP*kept()-cost)/oq:0;
+  const sellable=Math.max(0,rate*S.wait-queue),soldU=unitH>0?Math.min(made,sellable):0;
+  const earned=Math.max(0,soldU*unitH),sph=earned/S.hours;
   const firstWait=rate>0?queue/rate:Infinity,allSold=rate>0?(queue+made)/rate:Infinity;
   const lim=made<=0?(budN<1?"budget":"mats"):soldU<made-1e-9?"buyers":crafts<timeN-1e-9?(budN<=stockN?"budget":"mats"):"time";
-  return{oq,sell,cost,profit,unit,margin:cost>0?profit/cost:0,sec,crafts,made,rate,queue,soldU,earned,sph,firstWait,allSold,lim,stockN,
+  return{saleP,undercut,unitH,oq,sell,cost,profit,unit,margin:cost>0?profit/cost:0,sec,crafts,made,rate,queue,soldU,earned,sph,firstWait,allSold,lim,stockN,
     floor:out.lo&&listedPrice<=out.lo,cap:out.hi&&listedPrice>=out.hi,capFill,noList:out.l===0&&!has(O.price[r.out])};
 }
 const LIM={time:["p-time","Your crafting time"],buyers:["p-buyers","Buyers"],mats:["p-mats","Materials on market"],budget:["p-mats","Your silver"]};
@@ -365,12 +372,12 @@ function syncControls(){
   $("#vp").checked=S.vp;$("#fame").value=String(S.fame);$("#ring").checked=S.ring;
   $("#mode-ask").setAttribute("aria-pressed",S.mode==="ask");$("#mode-bid").setAttribute("aria-pressed",S.mode==="bid");
   for(const[k,id] of [["mastery","mastery"],["mpsec","mpsec"],["simple","s-simple"],["cup","s-cup"],["cook","s-cook"],["alch","s-alch"],["hours","hours"],["wait","wait"],["budget","budget"]])$("#"+id).value=S[k];
-  $("#sort").value=S.sort;
+  $("#sort").value=S.sort;$("#uc-on").setAttribute("aria-pressed",!!S.undercut);$("#uc-off").setAttribute("aria-pressed",!S.undercut);
   $("#chips").innerHTML=FILT.map(([k,l])=>`<button class="chip" data-f="${k}" aria-pressed="${S.filter===k}">${l}</button>`).join("");
 }
 function priceInput(id,label,cls){const it=item(id),ov=O.price[id];const ph=it.v?fmt(it.a):it.ns?"not sold":fmt(mktBuy(id));
   return`<input class="${cls||"num"}${has(ov)?" edited":""}" type="number" min="0" data-price="${id}" placeholder="${ph}" value="${has(ov)?ov:""}" aria-label="${esc(label||"Price of "+it.n)}">`}
-function rows(){const q=$("#q").value.trim().toLowerCase();
+function rows(all){const q=all?"":$("#q").value.trim().toLowerCase();
   return D.recipes.map(r=>({r,c:calc(r)})).filter(x=>(S.filter==="all"||x.r.m===S.filter)&&(!q||x.r.name.toLowerCase().includes(q)||x.r.ins.some(([id])=>D.items[id].n.toLowerCase().includes(q))))}
 
 function renderCrafts(){
@@ -379,7 +386,7 @@ function renderCrafts(){
   let h=`<div class="lhead"><span>Craft</span><span>Profit / craft</span><span title="Estimate using the hours, wait and silver set in the Sales tab">Profit / hour</span><span>Cost</span><span>Sells for</span><span>Margin</span></div>`;
   h+=win.map(({r,c})=>`<div class="row${c.profit<=0?" loss":""}" tabindex="0" data-id="${r.id}" aria-expanded="${open.has(r.id)}">
       <div><div class="nm">${esc(r.name)}</div><div class="meta">${METH[r.m]}${c.noList?" · nothing listed, base price used":""}</div><div class="mob">${c.sph>0?fmt(c.sph)+"/h est.":"no sales estimate now"} · cost ${fmt(c.cost)} · sells for ${fmt(c.oq*c.sell)}</div></div>
-      <div class="n big">${fmt(c.profit)}</div><div class="n c-ph" title="${c.sph>0?"Estimated with your Sales tab settings":LIM[c.lim][1]+" limits it to nothing right now"}">${c.sph>0?fmt(c.sph)+'<span class="u">/h</span>':'<span class="u">none now</span>'}</div><div class="n dim c-cost">${fmt(c.cost)}</div><div class="n dim c-sell">${fmt(c.oq*c.sell)}</div><div class="n dim c-margin">${Math.round(c.margin*100)}%</div>
+      <div class="n big">${fmt(c.profit)}</div><div class="n c-ph" title="${c.sph>0?"Estimated with your Sales tab settings":LIM[c.lim][1]+" limits it to nothing right now"}">${c.sph>0?fmt(c.sph)+'<span class="u">/h</span>':'<span class="u">'+(c.lim==="mats"?"no materials":c.lim==="budget"?"over budget":"no sale in "+S.wait+" h")+'</span>'}</div><div class="n dim c-cost">${fmt(c.cost)}</div><div class="n dim c-sell">${fmt(c.oq*c.sell)}</div><div class="n dim c-margin">${Math.round(c.margin*100)}%</div>
     </div>${open.has(r.id)?craftDetail(r,c):""}`).join("")||`<div class="empty">No profitable craft matches.</div>`;
   if(lose.length)h+=`<div class="sect">${lose.length} craft${lose.length>1?"s":""} lose money at current prices and are hidden.</div>`;
   $("#list").innerHTML=h;
@@ -422,7 +429,8 @@ function craftDetail(r,c){const out=item(r.out),afterTax=c.oq*c.sell*kept();
           <dt>Price (cheapest listing)</dt><dd>${priceInput(r.out,"Sell price","cell")}</dd>
           <dt>Listed now</dt><dd>${out.s==null?"–":full(out.s)}${c.noList?" (base price used)":""}</dd>
           <dt>Sold per hour</dt><dd>${fmt(c.rate)}</dd>
-          <dt>First sale in</dt><dd>${dur(c.firstWait)}</dd>
+          ${c.undercut?`<dt>You list at</dt><dd>${full(c.saleP)} <span class="hint">1 step cheaper</span></dd>`:""}
+          <dt>First sale in</dt><dd>${dur(c.firstWait)}${c.floor&&c.queue>0?' <span class="hint">at minimum price</span>':""}</dd>
         </dl>
         <button class="btn" data-goto-sales="${r.id}">Full sales estimate</button>
       </div>
@@ -430,7 +438,7 @@ function craftDetail(r,c){const out=item(r.out),afterTax=c.oq*c.sell*kept();
   </div></div>`}
 
 function renderSales(){
-  const all=rows().filter(x=>x.c.profit>0).sort((a,b)=>b.c.sph-a.c.sph||b.c.profit-a.c.profit),max=Math.max(1,...all.map(x=>x.c.sph));
+  const all=rows(true).filter(x=>x.c.profit>0).sort((a,b)=>b.c.sph-a.c.sph||b.c.profit-a.c.profit),max=Math.max(1,...all.map(x=>x.c.sph));
   $("#soldWin").textContent=dur(soldWindowH());$("#budgetTxt").textContent=fmt(S.budget)+" silver";
   let h=`<div class="lhead"><span>Craft</span><span>Profit / hour</span><span>Sold / hour</span><span>Listed ahead</span><span>First sale</span><span>Limited by</span></div>`;
   h+=all.map(({r,c})=>{const L=LIM[c.lim];return`<div class="row" tabindex="0" data-sid="${r.id}" aria-expanded="${sopen.has(r.id)}">
@@ -454,7 +462,7 @@ function salesDetail(r,c){const out=item(r.out);
       <div class="stat"><span class="k">All sold after</span><span class="v">${dur(c.allSold)}</span></div>
       <div class="stat"><span class="k">Silver you spend</span><span class="v">${fmt(c.crafts*c.cost)}</span></div>
     </div>
-    <p class="explain">You list ${esc(out.n)} at <b>${full(c.sell)}</b>. ${c.capFill?"That is the price cap and buy orders are waiting, so it sells straight away.":`<b>${full(c.queue)}</b> are already listed at that price${c.floor?", which is the lowest price the market allows, so nobody can undercut and you wait your turn":""}.`} The market buys about <b>${fmt(c.rate)}</b> per hour, so your first unit sells in about <b>${dur(c.firstWait)}</b>. ${why}</p>
+    <p class="explain">You list ${esc(out.n)} at <b>${full(c.saleP)}</b>. ${c.capFill?"That is the price cap and buy orders are waiting, so it sells straight away.":c.undercut?`That is one step below the cheapest listing (${full(c.sell)}), so yours sells before the ${full(out.q||0)} listed there.`:`<b>${full(c.queue)}</b> are already listed at that price${c.floor?", which is the lowest price the market allows, so nobody can undercut and you wait your turn":""}.`} The market buys about <b>${fmt(c.rate)}</b> per hour, so your first unit sells in about <b>${dur(c.firstWait)}</b>. ${why}</p>
     <div class="row2" style="max-width:420px"><div class="field"><label>Market sales per hour (your estimate)</label><input class="num${has(O.sold[r.out])?" edited":""}" type="number" min="0" step="any" data-sold="${r.out}" placeholder="${fmt(soldRate(r.out))}" value="${has(O.sold[r.out])?O.sold[r.out]:""}"></div></div>
   </div>`}
 
@@ -497,6 +505,7 @@ document.addEventListener("change",e=>{const t=e.target;if(t.id==="sort"){S.sort
 document.addEventListener("click",e=>{const t=e.target;
   const tab=t.closest("[role=tab]");if(tab){setView(tab.id.slice(4));return}
   if(t.id==="refresh"){refreshLive();return}
+  if(t.id==="uc-on"||t.id==="uc-off"){S.undercut=t.id==="uc-on";save();syncControls();render();return}
   if(t.id==="mode-ask"||t.id==="mode-bid"){S.mode=t.id==="mode-bid"?"bid":"ask";save();syncControls();render();return}
   if(t.id==="reset"){S={...DEF};O={price:{},qty:{},oq:{},sold:{},via:{}};save();syncControls();render();return}
   if(t.id==="clearPrices"){O.price={};save();render();return}
