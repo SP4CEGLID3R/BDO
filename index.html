@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BDO EU Craft Planner</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: settings rail on the left (stacks on top on phones), ranked craft list on the right; each row expands into its recipe with editable prices. */
+:root{
+  --bg:#f3f4f2; --panel:#fbfbfa; --ink:#15181a; --ink2:#4c5357; --muted:#7f878b; --line:#dcdfdc; --line2:#c6cbc8;
+  --accent:#9a6b12; --accent-soft:#f3e7cc; --bar:#2c6e8f; --bar-soft:#d7e6ee;
+  --good:#1f7a3a; --good-soft:#dcefe1; --warn:#9a5b00; --warn-soft:#f6e6c8; --bad:#b03a32; --bad-soft:#f5dcd9; --info:#3a5f8f; --info-soft:#dde6f2;
+  --display:"Space Grotesk",system-ui,sans-serif; --body:Inter,system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111416; --panel:#191d20; --ink:#eceeec; --ink2:#b4bbbe; --muted:#848c90; --line:#2a3034; --line2:#384046;
+  --accent:#d9a748; --accent-soft:#3a2e15; --bar:#5aa3c7; --bar-soft:#1d3440;
+  --good:#5cc27a; --good-soft:#173322; --warn:#e3a54a; --warn-soft:#3a2a12; --bad:#ec7d73; --bad-soft:#3d1d1a; --info:#86a9d8; --info-soft:#1b2a3d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111416; --panel:#191d20; --ink:#eceeec; --ink2:#b4bbbe; --muted:#848c90; --line:#2a3034; --line2:#384046;
+  --accent:#d9a748; --accent-soft:#3a2e15; --bar:#5aa3c7; --bar-soft:#1d3440;
+  --good:#5cc27a; --good-soft:#173322; --warn:#e3a54a; --warn-soft:#3a2a12; --bad:#ec7d73; --bad-soft:#3d1d1a; --info:#86a9d8; --info-soft:#1b2a3d; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.5;
+  padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px 24px}
+h1{font-family:var(--display);font-weight:600;font-size:clamp(24px,3.4vw,32px);line-height:1.1;margin:0;text-wrap:balance}
+h2{font-family:var(--display);font-weight:600;font-size:15px;margin:0}
+.eyebrow{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.sub{color:var(--ink2);max-width:70ch;margin:4px 0 0}
+.snap{font-size:12.5px;color:var(--ink2);text-align:right}
+.layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:880px){.layout{grid-template-columns:minmax(0,1fr)}}
+.rail{display:flex;flex-direction:column;gap:12px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px)}
+@media (max-width:880px){.rail{position:static;order:2}.snap{text-align:left}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label,.lbl{font-size:12.5px;color:var(--ink2)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:end}
+input[type=number],input[type=text],input[type=search],select{font:inherit;font-size:13.5px;color:var(--ink);background:var(--bg);border:1px solid var(--line2);border-radius:6px;padding:6px 8px;width:100%;min-width:0}
+input.num{font-family:var(--mono);font-size:13px;text-align:right}
+input:focus-visible,select:focus-visible,button:focus-visible,.crow:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.seg{display:flex;border:1px solid var(--line2);border-radius:6px;overflow:hidden}
+.seg button{flex:1;font:inherit;font-size:12.5px;padding:6px 6px;border:0;background:transparent;color:var(--ink2);cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--ink);color:var(--panel);font-weight:500}
+.check{display:flex;gap:8px;align-items:center;font-size:13px;cursor:pointer}
+.hint{font-size:12px;color:var(--muted);margin:0}
+.hint b{color:var(--ink2);font-weight:600}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.kept{font-family:var(--mono);font-size:13px;color:var(--ink)}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:inherit;font-size:12.5px;padding:5px 10px;border-radius:999px;border:1px solid var(--line2);background:var(--panel);color:var(--ink2);cursor:pointer}
+.chip[aria-pressed=true]{background:var(--accent-soft);border-color:var(--accent);color:var(--ink);font-weight:500}
+.toolbar .grow{flex:1 1 180px}
+.toolbar select{width:auto}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:640px){.tiles{grid-template-columns:minmax(0,1fr)}}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:2px;min-width:0;cursor:pointer;text-align:left;font:inherit;color:inherit}
+.tile .rank{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tile .nm{font-weight:600;font-size:14px;overflow-wrap:anywhere}
+.tile .big{font-family:var(--display);font-size:24px;font-weight:600;color:var(--accent);line-height:1.15}
+.tile .sm{font-size:12.5px;color:var(--ink2)}
+.list{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.lhead,.crow{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(110px,1fr) 88px 88px 88px 52px 124px 16px;gap:10px;align-items:center;padding:10px 14px}
+@media (max-width:1100px){.lhead,.crow{grid-template-columns:minmax(0,1.5fr) minmax(110px,1fr) 88px 88px 88px 124px 16px}.c-margin,.lhead .h-margin{display:none}}
+.lhead{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line);background:var(--bg)}
+.lhead span{text-align:right}
+.lhead span:first-child,.lhead span:nth-child(2),.lhead .h-lim{text-align:left}
+.lhead small{display:block;font-size:10.5px;letter-spacing:0;text-transform:none;color:var(--muted)}
+.crow{border-bottom:1px solid var(--line);cursor:pointer;font-variant-numeric:tabular-nums}
+.crow:hover{background:var(--bg)}
+.crow .nm{font-weight:500;overflow-wrap:anywhere}
+.crow .meta{font-size:12px;color:var(--muted)}
+.crow .meta .mob{display:none}
+@media (max-width:720px){.crow .meta .mob{display:inline}}
+.crow .num{font-family:var(--mono);font-size:13px;text-align:right}
+.sph{display:flex;flex-direction:column;gap:4px}
+.sph .v{font-family:var(--mono);font-size:13.5px;font-weight:500}
+.track{height:6px;border-radius:3px;background:var(--bar-soft);overflow:hidden}
+.track i{display:block;height:100%;border-radius:3px;background:var(--bar)}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:2px 8px;border-radius:999px;white-space:nowrap;justify-self:start}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.p-time{background:var(--info-soft);color:var(--info)}
+.p-market{background:var(--warn-soft);color:var(--warn)}
+.p-stock{background:var(--bad-soft);color:var(--bad)}
+.p-loss{background:var(--bad-soft);color:var(--bad)}
+.caret{color:var(--muted);transition:transform .15s}
+.crow[aria-expanded=true] .caret{transform:rotate(90deg)}
+.crow.loss .nm,.crow.loss .num,.crow.loss .sph .v{color:var(--muted)}
+.detail{padding:12px 14px 16px;border-bottom:1px solid var(--line);background:var(--bg);display:flex;flex-direction:column;gap:12px}
+.dgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+@media (max-width:640px){.dgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.stat{display:flex;flex-direction:column;gap:1px;min-width:0}
+.stat .k{font-size:11.5px;color:var(--muted)}
+.stat .v{font-family:var(--mono);font-size:13.5px}
+.scroll{overflow-x:auto}
+table.ing{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+table.ing th{font-size:11.5px;font-weight:500;color:var(--muted);text-align:right;padding:4px 8px;border-bottom:1px solid var(--line)}
+table.ing td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono);white-space:nowrap}
+table.ing th:first-child,table.ing td:first-child{text-align:left;font-family:var(--body);white-space:normal;min-width:160px}
+table.ing input{width:118px}
+table.ing tr.out td{border-bottom:0;padding-top:9px}
+.edited{background:var(--accent-soft)!important;border-color:var(--accent)!important}
+.btn{font:inherit;font-size:12.5px;padding:6px 10px;border-radius:6px;border:1px solid var(--line2);background:var(--panel);color:var(--ink);cursor:pointer}
+.btn:hover{border-color:var(--ink2)}
+.note{font-size:12.5px;color:var(--ink2);max-width:80ch}
+.empty{padding:28px 14px;color:var(--ink2);text-align:center}
+.sect{padding:8px 14px;font-size:12px;color:var(--muted);background:var(--bg);border-bottom:1px solid var(--line);letter-spacing:.04em}
+@media (max-width:720px){
+  .lhead{display:none}
+  .crow{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"nm car" "sph sph" "a b";row-gap:6px}
+  .crow>.c-nm{grid-area:nm}.crow>.c-sph{grid-area:sph}.crow>.caret{grid-area:car}
+  .crow>.c-prof{grid-area:a;text-align:left}.crow>.c-margin,.crow>.c-cost,.crow>.c-sell{display:none}.crow>.c-lim{grid-area:b;justify-self:end}
+}
+@media (prefers-reduced-motion:reduce){.caret{transition:none}}
+footer{font-size:12.5px;color:var(--ink2);display:flex;flex-direction:column;gap:6px;max-width:90ch}
+footer a{color:var(--ink2)}
+
+.views{display:flex;gap:4px;border-bottom:1px solid var(--line)}
+.views button{font:inherit;font-size:14px;font-weight:500;padding:8px 14px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--ink2);cursor:pointer;margin-bottom:-1px}
+.views button[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent)}
+.status{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink2);flex-wrap:wrap;justify-content:flex-end}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+.dot.live{background:var(--good);box-shadow:0 0 0 3px var(--good-soft)}
+.dot.stale{background:var(--warn)}
+.dot.off{background:var(--bad)}
+table.prices{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+table.prices>tbody>tr>th{font-size:11.5px;font-weight:500;color:var(--muted);text-align:right;padding:8px 10px;border-bottom:1px solid var(--line);background:var(--bg);position:sticky;top:0;cursor:pointer;white-space:nowrap}
+table.prices>tbody>tr>td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono);white-space:nowrap}
+table.prices>tbody>tr>th:first-child,table.prices>tbody>tr>td:first-child{text-align:left;font-family:var(--body);white-space:normal;min-width:180px}
+table.prices>tbody>tr>td>input{width:130px}
+.clr{font:inherit;font-size:12px;border:0;background:none;color:var(--muted);cursor:pointer;padding:2px 4px}
+.clr:hover{color:var(--ink)}
+.qty{width:72px!important}
+.statusbox{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.statusbox .status{justify-content:flex-start}
+@media (max-width:880px){.statusbox{align-items:flex-start}.status{justify-content:flex-start}}
+#refresh{border-color:var(--accent)}
+#refresh:disabled{opacity:.55;cursor:default}
+tr.prow{cursor:pointer}
+tr.prow:hover td{background:var(--bg)}
+tr.prow .caret{display:inline-block;width:10px}
+tr.prow[aria-expanded=true] .caret{transform:rotate(90deg)}
+tr.pdet>td{text-align:left;font-family:var(--body);white-space:normal;background:var(--bg)}
+tr.pdet .card{background:var(--panel)}
+tr.prow:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.pricewrap{max-height:none}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">Black Desert Online · EU Central Market</div>
+      <h1>BDO EU Craft Planner</h1>
+      <p class="sub">Every craft whose materials you can buy on the market, ranked by silver per hour after tax. Set your mastery and speed in the settings, and change any price or recipe amount to fit what you actually pay.</p>
+    </div>
+    <div class="statusbox"><div class="status" id="status" aria-live="polite"><span class="dot" id="dot"></span><span id="statusText">Loading live prices…</span></div><div class="status"><button class="btn" id="refresh" hidden>Refresh prices</button><span class="hint" id="refreshMsg" aria-live="polite"></span></div></div>
+  </header>
+
+  <div class="layout">
+    <aside class="rail" aria-label="Settings">
+      <section class="card">
+        <h2>Market tax</h2>
+        <label class="check"><input type="checkbox" id="vp" checked> Value Pack active</label>
+        <div class="field"><label for="fame">Family Fame</label>
+          <select id="fame"><option value="0">Under 1,000 (no bonus)</option><option value="0.005">1,000 to 3,999 (+0.5%)</option><option value="0.01">4,000 to 6,999 (+1%)</option><option value="0.015">7,000 or more (+1.5%)</option></select></div>
+        <label class="check"><input type="checkbox" id="ring"> Rich Merchant's Ring (+5%)</label>
+        <p class="hint">You keep <span class="kept" id="kept"></span> of every sale.</p>
+      </section>
+
+      <section class="card">
+        <h2>Buying materials</h2>
+        <div class="seg" role="group" aria-label="Buy materials from">
+          <button id="mode-ask" aria-pressed="true">Cheapest listing</button>
+          <button id="mode-bid" aria-pressed="false">Buy order</button>
+        </div>
+        <p class="hint">Buy order uses the current top bid. It is cheaper but fills only when someone sells to you.</p>
+      </section>
+
+      <section class="card">
+        <h2>Your speed</h2>
+        <div class="row2">
+          <div class="field"><label for="mastery">Processing Mastery</label><input class="num" type="number" id="mastery" min="0" max="3000" step="10" value="400"></div>
+          <div class="field"><label for="mpsec">Seconds per mass process</label><input class="num" type="number" id="mpsec" min="1" step="1" value="75"></div>
+        </div>
+        <p class="hint"><b id="perMP"></b> crafts per mass process, so <b id="procSec"></b> s per processing craft.</p>
+        <div class="row2">
+          <div class="field"><label for="s-simple">Simple alchemy / manufacture (s)</label><input class="num" type="number" id="s-simple" min="0.1" step="0.5" value="7.5"></div>
+          <div class="field"><label for="s-cup">Cup craft (s)</label><input class="num" type="number" id="s-cup" min="0.1" step="1" value="10"></div>
+          <div class="field"><label for="s-cook">Cooking (s)</label><input class="num" type="number" id="s-cook" min="0.1" step="0.5" value="1"></div>
+          <div class="field"><label for="s-alch">Alchemy (s)</label><input class="num" type="number" id="s-alch" min="0.1" step="0.5" value="1.5"></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Selling and session</h2>
+        <div class="field"><label for="share">Share of the market's sales you get: <b id="shareV"></b></label><input type="range" id="share" min="5" max="100" step="5" value="100"></div>
+        <div class="field"><label for="hours">Session length (hours)</label><input class="num" type="number" id="hours" min="0.25" step="0.25" value="1"></div>
+        <p class="hint">Silver per hour counts only crafts you can make, sell and buy materials for within the session.</p>
+      </section>
+
+      <section class="card">
+        <h2>Cup materials</h2>
+        <div id="cupmats" class="row2"></div>
+        <p class="hint">Blank uses the market price. Mass of Pure Magic is not sold on the market; enter what yours is worth to you.</p>
+      </section>
+
+      <button class="btn" id="reset">Reset all settings and edits</button>
+    </aside>
+
+    <main style="display:flex;flex-direction:column;gap:12px;min-width:0;order:1">
+      <div class="views" role="tablist" aria-label="View">
+        <button role="tab" id="tab-crafts" aria-selected="true" aria-controls="view-crafts">Crafts</button>
+        <button role="tab" id="tab-prices" aria-selected="false" aria-controls="view-prices">Prices</button>
+      </div>
+
+      <div id="view-crafts" role="tabpanel" aria-labelledby="tab-crafts" style="display:flex;flex-direction:column;gap:12px">
+        <div class="tiles" id="tiles"></div>
+        <div class="toolbar">
+          <div class="chips" role="group" aria-label="Filter by method" id="chips"></div>
+          <input type="search" id="q" class="grow" placeholder="Search crafts or materials" aria-label="Search crafts or materials">
+          <select id="sort" aria-label="Sort by"><option value="sph">Silver per hour</option><option value="profit">Profit per craft</option><option value="margin">Margin</option><option value="session">Session total</option><option value="cost">Price to craft</option><option value="sell">Selling price</option></select>
+          <label class="check"><input type="checkbox" id="showloss"> Show losing crafts</label>
+        </div>
+        <p class="hint">Cost is the price to craft once, Sells for is one craft at the cheapest current listing before tax, and Profit is after tax. Click a craft to see every material and its price. * means nothing is listed right now, so the market base price is used.</p>
+        <div class="list" id="list" role="list"></div>
+      </div>
+
+      <div id="view-prices" role="tabpanel" aria-labelledby="tab-prices" hidden style="flex-direction:column;gap:12px">
+        <div class="toolbar">
+          <input type="search" id="pq" class="grow" placeholder="Search items" aria-label="Search items">
+          <label class="check"><input type="checkbox" id="onlyEdited"> Only edited</label>
+          <button class="btn" id="clearPrices">Clear all price edits</button>
+        </div>
+        <p class="note">Your price replaces the market price everywhere the item appears, as a material and as a product. Leave it blank to follow the live market.</p>
+        <div class="list scroll"><table class="prices" id="ptable"></table></div>
+      </div>
+    </main>
+  </div>
+
+  <footer>
+    <p>Live prices are the cheapest EU listing and top buy order for each item, read straight from the community market API (arsha.io) by your browser. Prices refresh by themselves when they are over 30 minutes old, or when you press Refresh prices. Units sold per hour start from a snapshot taken on 14 Nov 2026 and then follow the change in each item's sales counter between your refreshes, averaged with the previous rate, so items that sell rarely are noisy. Recipes and average yields are from BDO Codex with no mastery bonus. Crafts per mass process by mastery are from <a href="https://grumpygreen.cricket/bdo-processing-mastery/" target="_blank" rel="noopener">Grumpy Green's mastery table</a>. The Rich Merchant's Ring bonus comes from a 2020 patch note and has not been confirmed for today.</p>
+    <p>Your settings, price edits, recipe edits and last fetched prices are kept in this browser only. Nothing is sent anywhere except the price requests to arsha.io.</p>
+  </footer>
+</div>
+
+<script>
+const D={"items":{"9492":{"n":"Grilled Bird Meat","a":6900,"b":null,"s":41000},"7921":{"n":"Chicken Meat","a":5350,"b":null,"s":103149},"9016":{"n":"Deep Frying Oil","a":40,"b":40,"s":null,"v":1},"9001":{"n":"Salt","a":20,"b":20,"s":null,"v":1},"9017":{"n":"Cooking Wine","a":40,"b":40,"s":null,"v":1},"9321":{"n":"Carrot Confit","a":126000,"b":121000,"s":11043},"54005":{"n":"Special Carrot","a":15600,"b":14900,"s":76436},"9059":{"n":"Mineral Water","a":30,"b":30,"s":null,"v":1},"54003":{"n":"Lump of Raw Sugar","a":5050,"b":null,"s":4147},"7348":{"n":"Cinnamon","a":3270,"b":3260,"s":65291},"820858":{"n":"Byeot County Gukbap","a":78000,"b":null,"s":11611},"820120":{"n":"Napa Cabbage","a":2750,"b":2550,"s":63168},"820815":{"n":"Cooked Rice","a":3660,"b":null,"s":55959},"820123":{"n":"Radish","a":2460,"b":null,"s":16047},"7905":{"n":"Pork","a":22200,"b":null,"s":58139},"4051":{"n":"Melted Iron Shard","a":11900,"b":10400,"s":6705},"4058":{"n":"Copper Ingot","a":60000,"b":null,"s":28967},"4057":{"n":"Melted Copper Shard","a":10200,"b":9100,"s":23277},"4070":{"n":"Processed Coal","a":20600,"b":18500,"s":99011},"4469":{"n":"Green Crystal","a":35100,"b":34200,"s":4696},"4409":{"n":"Rough Green Crystal","a":10600,"b":null,"s":14428},"4053":{"n":"Pure Iron Crystal","a":595000,"b":null,"s":46683},"4076":{"n":"Metal Solvent","a":336000,"b":null,"s":61231},"4059":{"n":"Pure Copper Crystal","a":600000,"b":555000,"s":39872},"4062":{"n":"Pure Tin Crystal","a":770000,"b":null,"s":53418},"4061":{"n":"Tin Ingot","a":76500,"b":null,"s":11882},"4080":{"n":"Pure Vanadium Crystal","a":665000,"b":null,"s":8964},"4079":{"n":"Vanadium Ingot","a":101000,"b":100000,"s":33160},"4259":{"n":"Pure Platinum Crystal","a":1240000,"b":null,"s":5859},"4258":{"n":"Platinum Ingot","a":505000,"b":480000,"s":15166},"4476":{"n":"Red Coral","a":91500,"b":84500,"s":998},"6501":{"n":"Coral Piece","a":3840,"b":null,"s":24205},"4451":{"n":"Ruby","a":13500,"b":null,"s":30186},"6504":{"n":"Green Coral","a":57000,"b":56500,"s":1502},"4460":{"n":"Emerald","a":12700,"b":null,"s":18807},"4479":{"n":"Daybreak Blue Coral","a":302000,"b":277000,"s":79},"4477":{"n":"Blue Coral","a":29300,"b":29200,"s":1254},"4455":{"n":"Resplendent Sapphire","a":53000,"b":48200,"s":5299},"6524":{"n":"Prairie Green Coral","a":630000,"b":null,"s":81},"4461":{"n":"Resplendent Emerald","a":58000,"b":57500,"s":15865},"6525":{"n":"Golden Sun Coral","a":825000,"b":null,"s":1649},"6505":{"n":"Golden Coral","a":92000,"b":null,"s":1291},"4458":{"n":"Resplendent Topaz","a":48000,"b":null,"s":82324},"4401":{"n":"Rough Ruby","a":3390,"b":3380,"s":11356},"4452":{"n":"Resplendent Ruby","a":43200,"b":null,"s":764071},"4454":{"n":"Sapphire","a":14200,"b":null,"s":47325},"4457":{"n":"Topaz","a":12000,"b":null,"s":54376},"4901":{"n":"Black Stone Powder","a":4720,"b":null,"s":185767},"16001":{"n":"Black Stone","a":120000,"b":null,"s":1725381},"44336":{"n":"Alchemy Stone Shard","a":180000,"b":null,"s":164196},"45216":{"n":"Sturdy Alchemy Stone of Destruction","a":60000000,"b":null,"s":641},"4918":{"n":"Magical Shard","a":2740000,"b":2470000,"s":2013},"15207":{"n":"Black Magic Crystal - Vigor","a":1820000,"b":null,"s":391},"4658":{"n":"Pine Plywood","a":45700,"b":44100,"s":82656},"4657":{"n":"Pine Plank","a":5050,"b":null,"s":14516},"4663":{"n":"Fir Plank","a":16900,"b":14800,"s":1},"4606":{"n":"Fir Timber","a":4450,"b":3930,"s":76938},"4671":{"n":"Palm Plywood","a":16200,"b":null,"s":114937},"4670":{"n":"Palm Plank","a":1600,"b":null,"s":129229},"4674":{"n":"Elder Tree Plywood","a":27100,"b":26200,"s":43344},"4673":{"n":"Elder Tree Plank","a":1880,"b":1810,"s":38608},"4695":{"n":"Moss Tree Plywood","a":27300,"b":null,"s":25704},"4694":{"n":"Moss Tree Plank","a":1360,"b":null,"s":34541},"4696":{"n":"Sturdy Moss Tree Plywood","a":1100000,"b":null,"s":3373},"4684":{"n":"Plywood Hardener","a":300000,"b":null,"s":7912},"4687":{"n":"Hard Pillar","a":5650000,"b":5600000,"s":1683},"4605":{"n":"Log","a":12700,"b":11700,"s":32391},"5852":{"n":"Flax Thread","a":8900,"b":null,"s":7039},"5802":{"n":"Flax","a":1480,"b":null,"s":50538},"5853":{"n":"Silk Thread","a":13400,"b":12800,"s":72543},"5803":{"n":"Silkworm Cocoon","a":1000,"b":870,"s":20500},"5855":{"n":"Cotton Fabric","a":90500,"b":null,"s":27617},"5851":{"n":"Cotton Yarn","a":11100,"b":null,"s":32247},"6151":{"n":"Soft Hide","a":4410,"b":null,"s":5069},"6002":{"n":"Sheep Hide","a":805,"b":null,"s":314179},"6152":{"n":"Tough Hide","a":17400,"b":null,"s":24284},"6004":{"n":"Rhino Hide","a":1180,"b":null,"s":92408},"6153":{"n":"Hard Hide","a":16100,"b":null,"s":89852},"6157":{"n":"Lightweight Plume","a":4560,"b":4370,"s":142},"6025":{"n":"Soft Ferri Feather","a":950,"b":850,"s":45251},"6163":{"n":"Fine Thick Fur","a":33100,"b":33000,"s":34464},"7102":{"n":"Barley Flour","a":4500,"b":3890,"s":1022},"7002":{"n":"Barley","a":2530,"b":null,"s":65619},"7104":{"n":"Sweet Potato Flour","a":4190,"b":4500,"s":0},"7004":{"n":"Sweet Potato","a":2030,"b":1960,"s":35482},"7105":{"n":"Corn Flour","a":4490,"b":3880,"s":2738},"7005":{"n":"Corn","a":2210,"b":null,"s":63172},"7106":{"n":"Teff Flour","a":2660,"b":null,"s":0},"7022":{"n":"Teff","a":980,"b":null,"s":86308},"9062":{"n":"Cheese","a":13700,"b":11900,"s":398},"9065":{"n":"Milk","a":24500,"b":21900,"s":28151},"7958":{"n":"Ground Bird Meat","a":12400,"b":null,"s":12363},"15666":{"n":"HAN Combined Magic Crystal - Macalod","a":218000000,"b":214000000,"s":134},"9768":{"n":"Garmoth's Scale","a":2100000,"b":1950000,"s":0},"15663":{"n":"Combined Magic Crystal - Macalod","a":68500000,"b":62500000,"s":49},"15812":{"n":"WON Magic Crystal - Hystria","a":84000000,"b":null,"s":84},"5865":{"n":"Dawn Fallen Silk","a":2630000,"b":null,"s":3444},"5857":{"n":"Silk","a":18200,"b":null,"s":30834},"6602":{"n":"Oil of Storms","a":45500,"b":44100,"s":1270},"15677":{"n":"Rebellious Spirit Crystal","a":247000000,"b":232000000,"s":90},"15626":{"n":"Black Spirit Crystal","a":24000000,"b":22000000,"s":28},"15627":{"n":"Awakened Spirit's Crystal","a":128000000,"b":127000000,"s":20},"15654":{"n":"Valtarra Spirit's Crystal","a":22900000,"b":21900000,"s":51},"5605":{"n":"Delotia Powder","a":33300,"b":null,"s":16368},"5537":{"n":"Special Delotia","a":21300,"b":null,"s":60477},"1169":{"n":"Immortal: Perfume of Deep Sea","a":159000000,"b":139000000,"s":94},"771":{"n":"Perfume of Deep Sea","a":27200000,"b":25700000,"s":760},"1178":{"n":"Corrupt Oil of Immortality","a":13100000,"b":11400000,"s":41},"3558":{"n":"Artisan's Special Stuffed Shadow Wolf Head","a":111000000,"b":null,"s":42},"3548":{"n":"Artisan's Stuffed Shadow Wolf Head","a":33700000,"b":null,"s":14},"5023":{"n":"Thornwood Sap","a":33700,"b":null,"s":137606},"56221":{"n":"Breath of Narcion","a":23900000,"b":null,"s":37},"4712":{"n":"Sturdy Thornwood Plywood","a":805000,"b":null,"s":1340},"4711":{"n":"Thornwood Plywood","a":34800,"b":34100,"s":17150},"877":{"n":"Immortal: Perfume of Charm","a":167000000,"b":null,"s":168},"6029":{"n":"Llama Hide","a":855,"b":null,"s":41921},"6027":{"n":"Yak Hide","a":975,"b":905,"s":9090},"6159":{"n":"Fine Soft Hide","a":17800,"b":null,"s":11147},"6161":{"n":"Fine Hard Hide","a":68000,"b":null,"s":16599},"6039":{"n":"Tiger Hide","a":895,"b":null,"s":59728},"1400":{"n":"Immortal: Harmony Draught","a":147000000,"b":139000000,"s":111},"1402":{"n":"[Party] Immortal: Harmony Draught - Human","a":146000000,"b":null,"s":70},"1401":{"n":"[Party] Harmony Draught - Human","a":20400000,"b":18500000,"s":10937},"820934":{"n":"Primordial Black Stone","a":35000000,"b":null,"s":4365},"4998":{"n":"Sharp Black Crystal Shard","a":4870000,"b":4860000,"s":34751},"721003":{"n":"Caphras Stone","a":820000,"b":null,"s":4069401},"820935":{"n":"Primordial Crystal","a":10000000,"b":null,"s":61990},"1408":{"n":"[Party] Immortal: Harmony Draught - Edania","a":127000000,"b":null,"s":41},"1407":{"n":"[Party] Harmony Draught - Edania","a":19900000,"b":19600000,"s":22922},"1414":{"n":"Immortal: Perfume of Tenacity","a":168000000,"b":null,"s":58},"1413":{"n":"Perfume of Tenacity","a":29200000,"b":27200000,"s":72},"16152":{"n":"Golden Fishing Rod","a":540000,"b":null,"s":264},"4601":{"n":"Ash Timber","a":1970,"b":1910,"s":40152},"8145":{"n":"Shard of the Furious Night","a":21500000,"b":19800000,"s":157},"8146":{"n":"Shard of the Tearful Night","a":21200000,"b":19200000,"s":145},"8147":{"n":"Shard of the Drained Night","a":20800000,"b":19500000,"s":328},"8135":{"n":"Heart of the Arid Forest","a":2500000,"b":null,"s":37378},"820979":{"n":"Essence of Dawn","a":33500000,"b":30800000,"s":7739},"8148":{"n":"Cup of a Lonely Cloud","a":5000000000,"b":4330000000,"s":5},"8149":{"n":"Cup of Dwindling Starlight","a":4980000000,"b":4320000000,"s":4},"8181":{"n":"Cup of Lone Tide","a":5000000000,"b":4330000000,"s":3},"8182":{"n":"Cup of Tragic Nightfall","a":4340000000,"b":4020000000,"s":0},"8417":{"n":"Cup of Earth's Sorrows","a":4970000000,"b":4330000000,"s":5},"820975":{"n":"Cup of Callous Sun","a":6250000000,"b":null,"s":8},"820976":{"n":"Cup of Burgeoning Dusk","a":6250000000,"b":null,"s":5},"820977":{"n":"Cup of Reticent Moonbeams","a":5950000000,"b":5600000000,"s":21},"752023":{"n":"Mass of Pure Magic","a":0,"b":0,"s":null,"ns":1}},"recipes":[{"id":"r0","name":"Grilled Bird Meat","out":9492,"oq":2.5,"m":"cook","t":"Cooking","sold":46156.19,"ins":[[7921,2.0],[9016,6.0],[9001,1.0],[9017,2.0]]},{"id":"r1","name":"Carrot Confit","out":9321,"oq":1.0,"m":"cook","t":"Cooking","sold":935.03,"ins":[[54005,2.0],[9059,6.0],[54003,3.0],[9001,2.0],[7348,4.0]]},{"id":"r2","name":"Byeot County Gukbap","out":820858,"oq":1.0,"m":"cook","t":"Cooking","sold":1118.19,"ins":[[820120,2.0],[820815,1.0],[9059,1.0],[820123,2.0],[7905,2.0]]},{"id":"r3","name":"Copper Ingot","out":4058,"oq":2.5,"m":"proc","t":"Heating","sold":13965.91,"ins":[[4057,10.0]]},{"id":"r4","name":"Green Crystal","out":4469,"oq":2.5,"m":"proc","t":"Heating","sold":9.16,"ins":[[4409,5.0]]},{"id":"r5","name":"Pure Copper Crystal","out":4059,"oq":2.0,"m":"proc","t":"Heating","sold":646.55,"ins":[[4076,2.0],[4058,3.0]]},{"id":"r6","name":"Pure Tin Crystal","out":4062,"oq":2.0,"m":"proc","t":"Heating","sold":274.74,"ins":[[4076,2.0],[4061,3.0]]},{"id":"r7","name":"Pure Vanadium Crystal","out":4080,"oq":2.0,"m":"proc","t":"Heating","sold":33.88,"ins":[[4076,2.0],[4079,3.0]]},{"id":"r8","name":"Pure Platinum Crystal","out":4259,"oq":2.0,"m":"proc","t":"Heating","sold":274.74,"ins":[[4076,1.0],[4258,3.0]]},{"id":"r9","name":"Red Coral","out":4476,"oq":1.5,"m":"proc","t":"Heating","sold":1.83,"ins":[[6501,10.0],[4451,1.0]]},{"id":"r10","name":"Green Coral","out":6504,"oq":1.5,"m":"proc","t":"Heating","sold":49.45,"ins":[[6501,10.0],[4460,1.0]]},{"id":"r11","name":"Daybreak Blue Coral","out":4479,"oq":1.0,"m":"proc","t":"Heating","sold":112.64,"ins":[[4477,3.0],[4455,1.0]]},{"id":"r12","name":"Prairie Green Coral","out":6524,"oq":1.0,"m":"proc","t":"Heating","sold":48.54,"ins":[[6504,3.0],[4461,1.0]]},{"id":"r13","name":"Golden Sun Coral","out":6525,"oq":1.0,"m":"proc","t":"Heating","sold":183.16,"ins":[[6505,3.0],[4458,1.0]]},{"id":"r14","name":"Ruby","out":4451,"oq":2.5,"m":"proc","t":"Grinding","sold":0.92,"ins":[[4401,5.0]]},{"id":"r15","name":"Resplendent Ruby","out":4452,"oq":2.0,"m":"proc","t":"Grinding","sold":0.92,"ins":[[4451,5.0]]},{"id":"r16","name":"Resplendent Sapphire","out":4455,"oq":2.0,"m":"proc","t":"Grinding","sold":0.92,"ins":[[4454,5.0]]},{"id":"r17","name":"Resplendent Topaz","out":4458,"oq":2.0,"m":"proc","t":"Grinding","sold":0.92,"ins":[[4457,5.0]]},{"id":"r18","name":"Black Stone Powder","out":4901,"oq":80.0,"m":"proc","t":"Grinding","sold":18315.95,"ins":[[16001,1.0]]},{"id":"r19","name":"Alchemy Stone Shard","out":44336,"oq":475.0,"m":"proc","t":"Grinding","sold":1743.68,"ins":[[45216,1.0]]},{"id":"r51","name":"Magical Shard","out":4918,"oq":10.0,"m":"proc","t":"Heating","sold":6366.62,"ins":[[4901,1.0],[15207,10.0]]},{"id":"r21","name":"Pine Plywood","out":4658,"oq":2.5,"m":"proc","t":"Chopping","sold":91.58,"ins":[[4657,10.0]]},{"id":"r22","name":"Fir Plank","out":4663,"oq":2.5,"m":"proc","t":"Chopping","sold":619.99,"ins":[[4606,5.0]]},{"id":"r23","name":"Palm Plywood","out":4671,"oq":2.5,"m":"proc","t":"Chopping","sold":9.16,"ins":[[4670,10.0]]},{"id":"r24","name":"Elder Tree Plywood","out":4674,"oq":2.5,"m":"proc","t":"Chopping","sold":2564.23,"ins":[[4673,10.0]]},{"id":"r25","name":"Moss Tree Plywood","out":4695,"oq":2.5,"m":"proc","t":"Chopping","sold":219.79,"ins":[[4694,10.0]]},{"id":"r26","name":"Sturdy Moss Tree Plywood","out":4696,"oq":2.0,"m":"proc","t":"Heating","sold":22.89,"ins":[[4695,10.0],[4684,3.0]]},{"id":"r27","name":"Hard Pillar","out":4687,"oq":1.0,"m":"proc","t":"Heating","sold":27.47,"ins":[[4605,10.0],[4684,10.0]]},{"id":"r28","name":"Flax Thread","out":5852,"oq":2.5,"m":"proc","t":"Heating","sold":2088.02,"ins":[[5802,5.0]]},{"id":"r29","name":"Silk Thread","out":5853,"oq":2.5,"m":"proc","t":"Heating","sold":13949.43,"ins":[[5803,5.0]]},{"id":"r30","name":"Cotton Fabric","out":5855,"oq":2.5,"m":"proc","t":"Grinding","sold":91.58,"ins":[[5851,10.0]]},{"id":"r31","name":"Soft Hide","out":6151,"oq":2.5,"m":"proc","t":"Drying","sold":302.21,"ins":[[6002,5.0]]},{"id":"r32","name":"Tough Hide","out":6152,"oq":2.5,"m":"proc","t":"Drying","sold":860.85,"ins":[[6004,5.0]]},{"id":"r33","name":"Lightweight Plume","out":6157,"oq":2.5,"m":"proc","t":"Filtering","sold":961.59,"ins":[[6025,5.0]]},{"id":"r34","name":"Barley Flour","out":7102,"oq":2.5,"m":"proc","t":"Grinding","sold":881.0,"ins":[[7002,1.0]]},{"id":"r35","name":"Sweet Potato Flour","out":7104,"oq":2.5,"m":"proc","t":"Grinding","sold":1006.46,"ins":[[7004,1.0]]},{"id":"r36","name":"Corn Flour","out":7105,"oq":2.5,"m":"proc","t":"Grinding","sold":1831.6,"ins":[[7005,1.0]]},{"id":"r37","name":"Teff Flour","out":7106,"oq":2.5,"m":"proc","t":"Grinding","sold":10066.45,"ins":[[7022,1.0]]},{"id":"r38","name":"Cheese","out":9062,"oq":2.5,"m":"proc","t":"Drying","sold":620.91,"ins":[[9065,1.0]]},{"id":"r50","name":"Ground Bird Meat","out":7958,"oq":2.5,"m":"proc","t":"Grinding","sold":915.8,"ins":[[7921,3.0]]},{"id":"r40","name":"HAN Combined Magic Crystal - Macalod","out":15666,"oq":1.0,"m":"simple","t":"Simple Alchemy","sold":8.24,"ins":[[9768,3.0],[15663,1.0],[15812,1.0]]},{"id":"r41","name":"Dawn Fallen Silk","out":5865,"oq":2.5,"m":"proc","t":"Grinding","sold":9.16,"ins":[[5857,50.0],[6602,50.0]]},{"id":"r42","name":"Rebellious Spirit Crystal","out":15677,"oq":1.0,"m":"simple","t":"Simple Alchemy","sold":11.91,"ins":[[15626,1.0],[15627,1.0],[15654,1.0]]},{"id":"r43","name":"Delotia Powder","out":5605,"oq":2.5,"m":"proc","t":"Grinding","sold":915.8,"ins":[[5537,3.0]]},{"id":"r44","name":"Immortal: Perfume of Deep Sea","out":1169,"oq":1.0,"m":"simple","t":"Simple Alchemy","sold":25.64,"ins":[[771,1.0],[1178,6.0]]},{"id":"r45","name":"Artisan's Special Stuffed Shadow Wolf Head","out":3558,"oq":1.0,"m":"simple","t":"Manufacture","sold":4.58,"ins":[[3548,1.0],[5023,10.0],[5605,10.0],[56221,1.0]]},{"id":"r46","name":"Sturdy Thornwood Plywood","out":4712,"oq":2.0,"m":"proc","t":"Heating","sold":22.89,"ins":[[4684,3.0],[4711,10.0]]},{"id":"r47","name":"Hard Hide","out":6153,"oq":2.5,"m":"proc","t":"Drying","sold":33.88,"ins":[[6027,5.0]]},{"id":"r48","name":"Fine Soft Hide","out":6159,"oq":1.0,"m":"proc","t":"Drying","sold":549.48,"ins":[[6029,5.0]]},{"id":"r49","name":"Fine Hard Hide","out":6161,"oq":1.0,"m":"proc","t":"Drying","sold":219.79,"ins":[[6027,5.0]]},{"id":"r50","name":"Fine Thick Fur","out":6163,"oq":1.0,"m":"proc","t":"Drying","sold":183.16,"ins":[[6039,5.0]]},{"id":"r51","name":"[Party] Immortal: Harmony Draught - Human","out":1402,"oq":1.0,"m":"simple","t":"Simple Alchemy","sold":71.43,"ins":[[1178,6.0],[1401,1.0]]},{"id":"r52","name":"Primordial Black Stone","out":820934,"oq":1.0,"m":"proc","t":"Heating","sold":877.33,"ins":[[4998,2.0],[721003,10.0],[820935,1.0]]},{"id":"r53","name":"[Party] Immortal: Harmony Draught - Edania","out":1408,"oq":1.0,"m":"simple","t":"Simple Alchemy","sold":14.65,"ins":[[1178,6.0],[1407,1.0]]},{"id":"r54","name":"Immortal: Perfume of Tenacity","out":1414,"oq":1.0,"m":"simple","t":"Simple Alchemy","sold":42.13,"ins":[[1178,6.0],[1413,1.0]]},{"id":"c8148","name":"Cup of a Lonely Cloud","out":8148,"oq":1,"m":"cup","t":"Heating","sold":0.92,"ins":[[4918,30],[8145,100],[8146,100],[16001,100],[752023,10]],"cup":1},{"id":"c8149","name":"Cup of Dwindling Starlight","out":8149,"oq":1,"m":"cup","t":"Heating","sold":0,"ins":[[4918,30],[8145,100],[8147,100],[16001,100],[752023,10]],"cup":1},{"id":"c8181","name":"Cup of Lone Tide","out":8181,"oq":1,"m":"cup","t":"Heating","sold":0,"ins":[[4918,30],[8135,100],[8145,100],[8146,100],[16001,100]],"cup":1},{"id":"c8182","name":"Cup of Tragic Nightfall","out":8182,"oq":1,"m":"cup","t":"Heating","sold":0,"ins":[[4918,30],[8135,100],[8145,100],[8147,100],[16001,100]],"cup":1},{"id":"c8417","name":"Cup of Earth's Sorrows","out":8417,"oq":1,"m":"cup","t":"Heating","sold":0,"ins":[[4918,30],[8145,50],[8146,50],[8147,100],[16001,100]],"cup":1},{"id":"c820975_8148","name":"Cup of Callous Sun (from Cup of a Lonely Cloud)","out":820975,"oq":1,"m":"cup","t":"Heating","sold":4.6,"ins":[[4918,30],[8145,100],[8146,100],[16001,100],[752023,10],[820979,20]],"cup":1},{"id":"c820975_8149","name":"Cup of Callous Sun (from Cup of Dwindling Starlight)","out":820975,"oq":1,"m":"cup","t":"Heating","sold":4.6,"ins":[[4918,30],[8145,100],[8147,100],[16001,100],[752023,10],[820979,20]],"cup":1},{"id":"c820976_8181","name":"Cup of Burgeoning Dusk (from Cup of Lone Tide)","out":820976,"oq":1,"m":"cup","t":"Heating","sold":2.76,"ins":[[4918,30],[8135,100],[8145,100],[8146,100],[16001,100],[820979,20]],"cup":1},{"id":"c820976_8182","name":"Cup of Burgeoning Dusk (from Cup of Tragic Nightfall)","out":820976,"oq":1,"m":"cup","t":"Heating","sold":2.76,"ins":[[4918,30],[8135,100],[8145,100],[8147,100],[16001,100],[820979,20]],"cup":1},{"id":"c820977_8417","name":"Cup of Reticent Moonbeams (from Cup of Earth's Sorrows)","out":820977,"oq":1,"m":"cup","t":"Heating","sold":1.84,"ins":[[4918,30],[8145,50],[8146,50],[8147,100],[16001,100],[820979,20]],"cup":1}],"mastery":[[2,10],[20,11],[40,12],[60,13],[80,14],[100,15],[120,16],[140,17],[160,18],[180,19],[200,20],[220,21],[240,22],[260,23],[280,24],[300,25],[320,26],[340,27],[360,28],[380,29],[400,30],[420,31],[440,32],[460,33],[480,34],[500,35],[520,36],[540,37],[560,38],[580,39],[600,40],[620,41],[640,42],[660,43],[680,45],[700,47],[720,49],[740,51],[760,53],[780,57],[810,60],[840,64],[870,68],[900,72],[930,76],[960,80],[990,85],[1020,90],[1060,96],[1100,112],[1140,118],[1180,124],[1220,130],[1260,137],[1300,144],[1350,154],[1400,162],[1450,170],[1500,178],[1550,186],[1600,194],[1650,203],[1700,212],[1800,222],[1900,235],[2000,250]],"snap":"14 Nov 2026, 18:37 UTC"};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt=n=>{if(n==null||!isFinite(n))return"–";const a=Math.abs(n),sg=n<0?"−":"";return a>=1e9?sg+(a/1e9).toFixed(a>=1e10?1:2)+"B":a>=1e6?sg+(a/1e6).toFixed(a>=1e8?0:1)+"M":a>=1e4?sg+(a/1e3).toFixed(0)+"k":a>=1e3?sg+(a/1e3).toFixed(1)+"k":sg+(a>=10?Math.round(a):+a.toFixed(2))};
+const full=n=>n==null||!isFinite(n)?"–":Math.round(n).toLocaleString("en-US");
+const DEF={vp:true,fame:0,ring:false,mode:"ask",mastery:400,mpsec:75,simple:7.5,cup:10,cook:1,alch:1.5,share:100,hours:1,filter:"all",sort:"sph",showloss:false};
+let S={...DEF}, O={price:{},sold:{},qty:{},oq:{}}, open=new Set(), LIVE=null, liveState="loading";
+try{const j=JSON.parse(localStorage.getItem("craftplanner")||"null");if(j){S={...DEF,...j.S};O={price:{},sold:{},qty:{},oq:{},...j.O};for(const k of Object.keys(O.price))if(k[0]==="s")delete O.price[k]}}catch(e){}
+const save=()=>{try{localStorage.setItem("craftplanner",JSON.stringify({S,O}))}catch(e){}};
+const METH={proc:"Processing",simple:"Simple alchemy / manufacture",cook:"Cooking",alch:"Alchemy",work:"Workshop",cup:"Cups"};
+const FILT=[["all","All"],["cup","Cups"],["proc","Processing"],["simple","Alchemy / manufacture"],["cook","Cooking"],["alch","Alchemy"]].filter(([k])=>k==="all"||D.recipes.some(r=>r.m===k));
+const CUPMATS=[8145,8146,8147,4918,16001,8135,820979,752023];
+const has=v=>v!=null&&v!=="";
+
+// market data: live row if present, else the built-in snapshot
+const item=id=>{const b=D.items[id],l=LIVE&&LIVE.items&&LIVE.items[id];if(!l||b.v||b.ns)return b;return{...b,a:l[0]!=null?l[0]:b.a,b:l[1],s:l[2]!=null?l[2]:b.s,noList:l.length>4?l[4]===0:l[2]===0}};
+const marketSold=r=>{const l=LIVE&&LIVE.sold&&LIVE.sold[r.out];return l!=null?l:r.sold};
+const kept=()=>0.65*(1+(S.vp?0.3:0)+(+S.fame)+(S.ring?0.05:0));
+const perMP=()=>{let c=D.mastery[0][1];for(const[m,n] of D.mastery)if(+S.mastery>=m)c=n;return c};
+const secFor=m=>m==="proc"?S.mpsec/perMP():m==="simple"?S.simple:m==="cup"?S.cup:m==="cook"?S.cook:m==="alch"?S.alch:600;
+const mktBuy=id=>{const it=item(id);return S.mode==="bid"&&it.b?it.b:it.a};
+const buyPrice=id=>has(O.price[id])?+O.price[id]:mktBuy(id);
+const sellPrice=id=>has(O.price[id])?+O.price[id]:item(id).a;
+const soldOf=r=>has(O.sold[r.id])?+O.sold[r.id]:marketSold(r);
+const qtyOf=(r,id,q)=>{const v=O.qty[r.id+":"+id];return has(v)?+v:q};
+const oqOf=r=>has(O.oq[r.id])?+O.oq[r.id]:r.oq;
+
+function calc(r){
+  const k=kept(),sell=sellPrice(r.out),oq=oqOf(r);
+  let cost=0,stockN=Infinity;
+  for(const[id,q0] of r.ins){const q=qtyOf(r,id,q0),it=item(id);cost+=buyPrice(id)*q;if(q>0&&it.s!=null&&!it.v&&!it.ns&&!has(O.price[id]))stockN=Math.min(stockN,Math.floor(it.s/q))}
+  if(S.mode==="bid")stockN=Infinity;
+  const profit=oq*sell*k-cost,sec=secFor(r.m),you=3600/sec,mkt=oq>0?soldOf(r)*S.share/100/oq:0;
+  const perHour=Math.min(you,mkt),want=perHour*S.hours,crafts=Math.min(want,stockN);
+  const lim=profit<=0?"loss":crafts<want-1e-9?"stock":you<=mkt?"time":"market";
+  const session=crafts*Math.max(profit,0);
+  return{sell,oq,cost,profit,margin:cost>0?profit/cost:0,sec,you,mkt,stockN,crafts,session,sph:session/S.hours,lim,capital:crafts*cost};
+}
+const LIM={time:["p-time","Your time"],market:["p-market","Market demand"],stock:["p-stock","Material stock"],loss:["p-loss","Loses money"]};
+
+function ago(t){const m=Math.round((Date.now()/1000-t)/60);return m<1?"just now":m<60?m+" min ago":m<1440?Math.floor(m/60)+" h "+(m%60)+" min ago":Math.floor(m/1440)+" days ago"}
+function renderStatus(){
+  const dot=$("#dot"),txt=$("#statusText");
+  if(LIVE&&LIVE.at){const age=Date.now()/1000-LIVE.at;dot.className="dot "+(age<7200?"live":"stale");
+    txt.textContent=`Live EU prices, updated ${ago(LIVE.at)} · ${LIVE.books||Object.keys(LIVE.items||{}).length} items`+(age>=7200?" · may be out of date":"");}
+  else if(liveState==="loading"){dot.className="dot";txt.textContent=`Loading live prices. Showing the snapshot from ${D.snap} until they arrive.`}
+  else if(liveState==="slow"){dot.className="dot stale";txt.textContent=`Live prices can't be reached yet. Showing the snapshot from ${D.snap}.`}
+  else{dot.className="dot off";txt.textContent=`Live prices aren't available here. Showing the snapshot from ${D.snap}.`}
+}
+
+function syncControls(){
+  $("#vp").checked=S.vp;$("#fame").value=String(S.fame);$("#ring").checked=S.ring;
+  $("#mode-ask").setAttribute("aria-pressed",S.mode==="ask");$("#mode-bid").setAttribute("aria-pressed",S.mode==="bid");
+  for(const[k,id] of [["mastery","mastery"],["mpsec","mpsec"],["simple","s-simple"],["cup","s-cup"],["cook","s-cook"],["alch","s-alch"],["hours","hours"]])$("#"+id).value=S[k];
+  $("#share").value=S.share;$("#sort").value=S.sort;$("#showloss").checked=S.showloss;
+  $("#chips").innerHTML=FILT.map(([k,l])=>`<button class="chip" data-f="${k}" aria-pressed="${S.filter===k}">${l}</button>`).join("");
+  renderCupMats();
+}
+function priceInput(id,label){const it=item(id),ov=O.price[id];const ph=it.v?fmt(it.a)+" vendor":it.ns?"not sold":fmt(mktBuy(id));
+  return`<input class="num${has(ov)?" edited":""}" type="number" min="0" data-price="${id}" placeholder="${ph}" value="${has(ov)?ov:""}" aria-label="${esc(label||"Price of "+it.n)}">`}
+function renderCupMats(){$("#cupmats").innerHTML=CUPMATS.filter(id=>D.items[id]).map(id=>`<div class="field"><label>${esc(D.items[id].n)}</label>${priceInput(id)}</div>`).join("")}
+
+function render(){
+  renderStatus();
+  $("#kept").textContent=(kept()*100).toFixed(1)+"%";
+  $("#perMP").textContent=perMP();$("#procSec").textContent=(S.mpsec/perMP()).toFixed(2);
+  $("#shareV").textContent=S.share+"%";
+  if(view==="prices"){renderPrices();return}
+  const q=$("#q").value.trim().toLowerCase();
+  let rows=D.recipes.map(r=>({r,c:calc(r)}));
+  const all=rows.filter(x=>x.c.profit>0&&x.c.sph>0).sort((a,b)=>b.c.sph-a.c.sph);
+  $("#tiles").innerHTML=all.slice(0,3).map((x,i)=>`<button class="tile" data-jump="${x.r.id}"><span class="rank">#${i+1} silver per hour</span><span class="nm">${esc(x.r.name)}</span><span class="big">${fmt(x.c.sph)}/h</span><span class="sm">${fmt(x.c.profit)} per craft · ${LIM[x.c.lim][1].toLowerCase()} limits it</span></button>`).join("");
+  rows=rows.filter(x=>(S.filter==="all"||x.r.m===S.filter)&&(!q||x.r.name.toLowerCase().includes(q)||x.r.ins.some(([id])=>D.items[id].n.toLowerCase().includes(q))));
+  const key={sph:x=>x.c.sph,profit:x=>x.c.profit,margin:x=>x.c.margin,session:x=>x.c.session,cost:x=>x.c.cost,sell:x=>x.c.oq*x.c.sell}[S.sort]||(x=>x.c.sph);
+  const win=rows.filter(x=>x.c.profit>0).sort((a,b)=>key(b)-key(a)||b.c.profit-a.c.profit);
+  const lose=rows.filter(x=>x.c.profit<=0).sort((a,b)=>b.c.profit-a.c.profit);
+  const max=Math.max(1,...win.map(x=>x.c.sph));
+  const rowHtml=x=>{const{r,c}=x,ex=open.has(r.id),L=LIM[c.lim],edited=r.ins.some(([id])=>has(O.price[id])||has(O.qty[r.id+":"+id]))||has(O.price[r.out])||has(O.sold[r.id])||has(O.oq[r.id]);
+    return`<div class="crow${c.profit<=0?" loss":""}" role="listitem" tabindex="0" data-id="${r.id}" aria-expanded="${ex}">
+      <div class="c-nm"><div class="nm">${esc(r.name)}</div><div class="meta">${METH[r.m]} · ${fmt(c.sec)}s per craft · ${fmt(soldOf(r))} sold/h${edited?" · edited":""}<span class="mob"> · costs ${fmt(c.cost)}, sells for ${fmt(c.oq*c.sell)}</span></div></div>
+      <div class="c-sph sph"><span class="v">${c.profit>0?fmt(c.sph)+"/h":"–"}</span><div class="track"><i style="width:${c.profit>0?Math.max(1,c.sph/max*100):0}%"></i></div></div>
+      <div class="c-cost num" title="${full(c.cost)}">${fmt(c.cost)}</div>
+      <div class="c-sell num" title="${full(c.oq*c.sell)}${item(r.out).noList&&!has(O.price[r.out])?" (nothing listed now; base price)":""}">${fmt(c.oq*c.sell)}${item(r.out).noList&&!has(O.price[r.out])?"*":""}</div>
+      <div class="c-prof num">${fmt(c.profit)}</div>
+      <div class="c-margin num">${c.cost>0?Math.round(c.margin*100)+"%":"–"}</div>
+      <span class="c-lim pill ${L[0]}">${L[1]}</span>
+      <span class="caret" aria-hidden="true">›</span></div>${ex?detail(r,c):""}`};
+  let h=`<div class="lhead"><span>Craft</span><span>Silver per hour</span><span title="Cost of the materials for one craft">Cost</span><span title="What one craft sells for at the cheapest current listing, before tax">Sells for</span><span title="Profit per craft after tax">Profit</span><span class="h-margin">Margin</span><span class="h-lim">Limited by</span><span></span></div>`;
+  h+=win.map(rowHtml).join("")||`<div class="empty">No profitable craft matches. Clear the search or pick another filter.</div>`;
+  if(S.showloss&&lose.length)h+=`<div class="sect">Losing money at these prices (${lose.length})</div>`+lose.map(rowHtml).join("");
+  else if(lose.length)h+=`<div class="sect">${lose.length} more craft${lose.length>1?"s":""} lose money at these prices. Tick “Show losing crafts” to see them.</div>`;
+  $("#list").innerHTML=h;
+}
+function detail(r,c){
+  const it=item(r.out),dov=O.sold[r.id],oov=O.oq[r.id];
+  const ing=r.ins.map(([id,q0])=>{const m=item(id),qk=r.id+":"+id,qv=O.qty[qk],q=qtyOf(r,id,q0);
+    return`<tr><td>${esc(m.n)}</td><td><input class="num qty${has(qv)?" edited":""}" type="number" min="0" step="any" data-qty="${qk}" placeholder="${q0}" value="${has(qv)?qv:""}" aria-label="Amount of ${esc(m.n)}"></td><td>${priceInput(id)}</td><td>${fmt(buyPrice(id)*q)}</td><td>${m.v?"vendor":m.s==null?"–":full(m.s)}</td></tr>`}).join("");
+  return`<div class="detail">
+    <div class="dgrid">
+      <div class="stat"><span class="k">Cost per craft</span><span class="v">${full(c.cost)}</span></div>
+      <div class="stat"><span class="k">After-tax sale per craft</span><span class="v">${full(c.oq*c.sell*kept())}</span></div>
+      <div class="stat"><span class="k">Profit per craft</span><span class="v">${full(c.profit)}</span></div>
+      <div class="stat"><span class="k">Units made per craft</span><span class="v">${+c.oq.toFixed(2)}</span></div>
+      <div class="stat"><span class="k">Cost per unit made</span><span class="v">${c.oq>0?full(c.cost/c.oq):"–"}</span></div>
+      <div class="stat"><span class="k">Profit per unit made</span><span class="v">${c.oq>0?full(c.profit/c.oq):"–"}</span></div>
+      <div class="stat"><span class="k">Silver per hour</span><span class="v">${fmt(c.sph)}</span></div>
+      <div class="stat"><span class="k">Crafts this session</span><span class="v">${c.crafts>=100?full(c.crafts):(+c.crafts.toFixed(1))}</span></div>
+      <div class="stat"><span class="k">Silver needed up front</span><span class="v">${fmt(c.capital)}</span></div>
+      <div class="stat"><span class="k">You can craft per hour</span><span class="v">${full(c.you)}</span></div>
+      <div class="stat"><span class="k">Market buys per hour</span><span class="v">${c.mkt>=10?full(c.mkt):(+c.mkt.toFixed(2))}</span></div>
+      <div class="stat"><span class="k">Crafts the listed stock allows</span><span class="v">${isFinite(c.stockN)?full(c.stockN):"no limit"}</span></div>
+      <div class="stat"><span class="k">Session total</span><span class="v">${fmt(c.session)}</span></div>
+    </div>
+    <h2>Materials for one craft</h2>
+    <div class="scroll"><table class="ing">
+      <tr><th>Material</th><th>Amount</th><th>Unit price</th><th>Line cost</th><th>Listed</th></tr>${ing}
+      <tr class="out"><td><b>Price to craft</b></td><td></td><td></td><td><b>${fmt(c.cost)}</b></td><td></td></tr>
+      <tr class="out"><td><b>Sells: ${esc(it.n)}</b><br><span class="hint">Selling price = cheapest current listing${it.noList&&!has(O.price[r.out])?". None listed now, so the market base price is used":""}</span></td><td><input class="num qty${has(oov)?" edited":""}" type="number" min="0" step="any" data-oq="${r.id}" placeholder="${r.oq}" value="${has(oov)?oov:""}" aria-label="Units made per craft"></td><td>${priceInput(r.out,"Sell price")}</td><td>${fmt(c.oq*c.sell)}</td><td>${it.s==null?"–":full(it.s)}</td></tr>
+      <tr class="out"><td>Units the whole market sells per hour</td><td></td><td><input class="num${has(dov)?" edited":""}" type="number" min="0" step="any" data-sold="${r.id}" placeholder="${fmt(marketSold(r))}" value="${has(dov)?dov:""}" aria-label="Units sold per hour"></td><td></td><td></td></tr>
+    </table></div>
+    <p class="note">Every field here is editable. Amount and units made default to the recipe's average yield; blank fields follow the live market.${r.cup?" Cups are crafted one at a time and capped at the 5.0B or 10B market limit. Cup sales are slow and noisy.":""}</p>
+  </div>`;
+}
+let psort={k:"n",d:1},popen=new Set();
+function renderPrices(){
+  const q=$("#pq").value.trim().toLowerCase(),only=$("#onlyEdited").checked;
+  const used={};for(const r of D.recipes){used[r.out]=(used[r.out]||0)+1;for(const[id] of r.ins)used[id]=(used[id]||0)+1}
+  const soldBy={};for(const r of D.recipes)soldBy[r.out]=marketSold(r);
+  let ids=Object.keys(D.items).filter(id=>{const it=D.items[id];return(!q||it.n.toLowerCase().includes(q))&&(!only||has(O.price[id]))});
+  const val=id=>{const it=item(id);return{n:it.n.toLowerCase(),a:it.a||0,b:it.b||0,s:it.s||0,v:soldBy[id]||0,u:used[id]||0}};
+  ids.sort((x,y)=>{const a=val(x)[psort.k],b=val(y)[psort.k];return(a<b?-1:a>b?1:0)*psort.d});
+  const th=(k,l)=>`<th data-ps="${k}" aria-sort="${psort.k===k?(psort.d>0?"ascending":"descending"):"none"}">${l}${psort.k===k?(psort.d>0?" ↑":" ↓"):""}</th>`;
+  $("#ptable").innerHTML=`<tr>${th("n","Item")}${th("a","Cheapest listing")}${th("b","Top buy order")}${th("s","Listed")}${th("v","Sold per hour")}${th("u","Used in")}<th>Your price</th><th></th></tr>`+
+    ids.map(id=>{const it=item(id),ex=popen.has(id);return`<tr class="prow" data-item="${id}" tabindex="0" aria-expanded="${ex}"><td><span class="caret" aria-hidden="true">›</span> ${esc(it.n)}</td><td>${it.v?"vendor "+full(it.a):it.ns?"not sold":full(it.a)+(it.noList?"*":"")}</td><td>${it.b?full(it.b):"–"}</td><td>${it.s==null?"–":full(it.s)}</td><td>${soldBy[id]!=null?fmt(soldBy[id]):"–"}</td><td>${used[id]||0}</td><td>${priceInput(id)}</td><td>${has(O.price[id])?`<button class="clr" data-clear="${id}" aria-label="Clear price of ${esc(it.n)}">Clear</button>`:""}</td></tr>${ex?`<tr class="pdet"><td colspan="8">${itemDetail(id)}</td></tr>`:""}`}).join("")||`<tr><td colspan="8" class="empty">No item matches.</td></tr>`;
+}
+
+function itemDetail(id){
+  const it=item(id),makes=D.recipes.filter(r=>r.out==id),uses=D.recipes.filter(r=>r.ins.some(([i])=>i==id));
+  const recipe=r=>{const c=calc(r);return`<div class="card"><h2>${esc(r.name)}</h2>
+    <div class="scroll"><table class="ing"><tr><th>Material</th><th>Amount</th><th>Unit price</th><th>Line cost</th><th>Listed</th></tr>`+
+    r.ins.map(([i,q0])=>{const m=item(i),q=qtyOf(r,i,q0);return`<tr><td>${esc(m.n)}</td><td>${+q.toFixed(2)}</td><td>${m.ns&&!has(O.price[i])?"not sold":full(buyPrice(i))}</td><td>${full(buyPrice(i)*q)}</td><td>${m.v?"vendor":m.s==null?"–":full(m.s)}</td></tr>`}).join("")+
+    `<tr class="out"><td><b>Price to craft</b></td><td></td><td></td><td><b>${full(c.cost)}</b></td><td></td></tr>
+     <tr class="out"><td><b>Selling price</b> (${+c.oq.toFixed(2)} × ${full(c.sell)}, cheapest current listing${item(r.out).noList&&!has(O.price[r.out])?"; none listed, base price used":""})</td><td></td><td></td><td><b>${full(c.oq*c.sell)}</b></td><td></td></tr>
+     <tr class="out"><td><b>Profit after tax</b></td><td></td><td></td><td><b>${full(c.profit)}</b></td><td>${c.cost>0?Math.round(c.margin*100)+"%":""}</td></tr>
+     <tr class="out"><td><b>Profit per unit made</b> (${+c.oq.toFixed(2)} per craft)</td><td></td><td></td><td><b>${c.oq>0?full(c.profit/c.oq):"–"}</b></td><td></td></tr>
+     <tr class="out"><td><b>Silver per hour</b></td><td></td><td></td><td><b>${fmt(c.sph)}</b></td><td></td></tr></table></div>
+    <div><button class="btn" data-goto="${r.id}">Open in Crafts</button></div></div>`};
+  return`<div class="detail" style="background:transparent;border:0;padding:6px 0 10px">
+    <div class="dgrid"><div class="stat"><span class="k">Cheapest listing</span><span class="v">${it.v?"vendor "+full(it.a):it.ns?"not sold":full(it.a)}</span></div>
+    <div class="stat"><span class="k">Top buy order</span><span class="v">${it.b?full(it.b):"–"}</span></div>
+    <div class="stat"><span class="k">Listed</span><span class="v">${it.s==null?"–":full(it.s)}</span></div>
+    <div class="stat"><span class="k">Price used</span><span class="v">${full(buyPrice(id))}${has(O.price[id])?" (yours)":""}</span></div></div>
+    ${makes.length?`<h2>How to make it</h2>`+makes.map(recipe).join(""):`<p class="note">No recipe in the planner makes this item; it is bought from the market or a vendor.</p>`}
+    ${uses.length?`<h2>Used in</h2><div class="chips">`+uses.map(r=>`<button class="chip" data-goto="${r.id}">${esc(r.name)}</button>`).join("")+`</div>`:""}
+  </div>`;
+}
+let view=location.hash==="#prices"?"prices":"crafts";
+function setView(v){view=v;$("#tab-crafts").setAttribute("aria-selected",v==="crafts");$("#tab-prices").setAttribute("aria-selected",v==="prices");
+  $("#view-crafts").hidden=v!=="crafts";$("#view-prices").hidden=v!=="prices";$("#view-prices").style.display=v==="prices"?"flex":"";
+  try{history.replaceState(null,"",v==="prices"?"#prices":location.pathname+location.search)}catch(e){}render()}
+addEventListener("hashchange",()=>setView(location.hash==="#prices"?"prices":"crafts"));
+
+function rerenderKeepFocus(){const f=document.activeElement;let sel=null,pos=null;
+  if(f&&f.dataset){for(const k of ["price","qty","oq","sold"])if(f.dataset[k]!=null){sel=`[data-${k}="${f.dataset[k]}"]`;break}
+    try{pos=f.selectionStart}catch(e){}}
+  const inDetail=f&&f.closest&&f.closest(".detail"),inPrices=f&&f.closest&&f.closest("#ptable"),inCup=f&&f.closest&&f.closest("#cupmats");
+  render();if(!inCup)renderCupMats();
+  if(sel){const scope=inDetail?".detail ":inPrices?"#ptable ":inCup?"#cupmats ":"";const n=document.querySelector(scope+sel);if(n&&n!==f){n.focus();try{if(pos!=null)n.setSelectionRange(pos,pos)}catch(e){}}}}
+const num=(v,d)=>{const n=parseFloat(v);return isFinite(n)&&n>0?n:d};
+document.addEventListener("input",e=>{const t=e.target,ds=t.dataset||{};
+  if(ds.price!=null){O.price[ds.price]=t.value}
+  else if(ds.qty!=null){O.qty[ds.qty]=t.value}
+  else if(ds.oq!=null){O.oq[ds.oq]=t.value}
+  else if(ds.sold!=null){O.sold[ds.sold]=t.value}
+  else if(t.id==="q"||t.id==="pq"||t.id==="onlyEdited"){render();return}
+  else{const map={vp:["vp","c"],ring:["ring","c"],mastery:["mastery","n"],mpsec:["mpsec","n"],"s-simple":["simple","n"],"s-cup":["cup","n"],"s-cook":["cook","n"],"s-alch":["alch","n"],share:["share","n"],hours:["hours","n"],showloss:["showloss","c"]}[t.id];
+    if(!map)return;const[k,ty]=map;S[k]=ty==="c"?t.checked:num(t.value,DEF[k]);if(k==="mastery")S[k]=Math.max(0,parseFloat(t.value)||0);save();render();return}
+  if(t.value==="")for(const o of [O.price,O.qty,O.oq,O.sold])for(const k in o)if(o[k]==="")delete o[k];
+  save();rerenderKeepFocus();
+});
+document.addEventListener("change",e=>{const t=e.target;if(t.id==="sort"){S.sort=t.value;save();render()}else if(t.id==="fame"){S.fame=+t.value;save();render()}});
+document.addEventListener("click",e=>{const t=e.target;
+  if(t.id==="tab-crafts"||t.id==="tab-prices"){setView(t.id==="tab-prices"?"prices":"crafts");return}
+  const th=t.closest("th[data-ps]");if(th){const k=th.dataset.ps;psort=psort.k===k?{k,d:-psort.d}:{k,d:k==="n"?1:-1};render();return}
+  if(t.dataset&&t.dataset.clear!=null){delete O.price[t.dataset.clear];save();render();renderCupMats();return}
+  if(t.id==="clearPrices"){O.price={};save();render();renderCupMats();return}
+  const go=t.closest("[data-goto]");if(go){const id=go.dataset.goto;S.filter="all";$("#q").value="";open.add(id);syncControls();setView("crafts");const r=document.querySelector(`.crow[data-id="${id}"]`);if(r)r.scrollIntoView({block:"start"});return}
+  const pr=t.closest(".prow");if(pr&&!t.closest("input,button")){const id=pr.dataset.item;popen.has(id)?popen.delete(id):popen.add(id);render();return}
+  if(t.closest("input,select,label,.detail,#ptable"))return;
+  const chip=t.closest(".chip");if(chip){S.filter=chip.dataset.f;save();syncControls();render();return}
+  if(t.id==="mode-ask"||t.id==="mode-bid"){S.mode=t.id==="mode-bid"?"bid":"ask";save();syncControls();render();return}
+  if(t.id==="reset"){S={...DEF};O={price:{},sold:{},qty:{},oq:{}};open.clear();$("#q").value="";save();syncControls();render();return}
+  const tile=t.closest(".tile");if(tile){const id=tile.dataset.jump;S.filter="all";$("#q").value="";open.add(id);syncControls();render();const r=document.querySelector(`.crow[data-id="${id}"]`);if(r)r.scrollIntoView({block:"center",behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"});return}
+  const row=t.closest(".crow");if(row){const id=row.dataset.id;open.has(id)?open.delete(id):open.add(id);render()}
+});
+document.addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.classList&&(e.target.classList.contains("crow")||e.target.classList.contains("prow"))){e.preventDefault();e.target.click()}});
+
+syncControls();setView(view);
+setInterval(renderStatus,60000);
+// ---- live prices straight from the market API (works for anyone, no account) ----
+const API="https://api.arsha.io/v2/eu/";
+const LIVE_IDS=Object.keys(D.items).filter(id=>!D.items[id].v&&!D.items[id].ns);
+let busy=false;
+try{const c=JSON.parse(localStorage.getItem("craftplanner.live")||"null");if(c&&c.items){LIVE=c;liveState="live"}}catch(e){}
+if(!LIVE){LIVE={at:0,items:{},sold:{}};for(const r of D.recipes)LIVE.sold[r.out]=r.sold;LIVE=null}
+async function getJSON(path){
+  for(let t=0;t<5;t++){
+    try{const r=await fetch(API+path,{cache:"no-store"});if(r.ok){const j=await r.json();if(!(j&&j.status===500))return j}}catch(e){}
+    await new Promise(res=>setTimeout(res,1500*(t+1)));
+  }
+  return null;
+}
+async function refreshLive(){
+  if(busy)return;busy=true;
+  const btn=$("#refresh"),msg=$("#refreshMsg");btn.disabled=true;btn.textContent="Refreshing…";
+  const prev=LIVE,items={};let done=0,ok=0;
+  const step=()=>{msg.textContent=`Fetching prices: ${done} of ${LIVE_IDS.length} items`};step();
+  for(let i=0;i<LIVE_IDS.length;i+=40){
+    const j=await getJSON("item?lang=en&"+LIVE_IDS.slice(i,i+40).map(x=>"id="+x).join("&"));
+    for(let x of (j||[])){if(Array.isArray(x))x=x[0];if(x&&x.id!=null)items[x.id]=[x.basePrice,null,x.currentStock,x.totalTrades,0]}
+  }
+  let k=0;
+  async function worker(){
+    while(k<LIVE_IDS.length){const id=LIVE_IDS[k++];
+      const b=await getJSON(`GetBiddingInfoList?id=${id}&sid=0&lang=en`);
+      const row=items[id]||(items[id]=[null,null,0,null,0]);
+      if(b&&b.orders){const asks=b.orders.filter(o=>o.sellers>0),bids=b.orders.filter(o=>o.buyers>0).map(o=>o.price);
+        if(asks.length){row[0]=Math.min(...asks.map(o=>o.price));row[4]=1}else row[4]=0;
+        row[1]=bids.length?Math.max(...bids):null;row[2]=asks.reduce((s,o)=>s+o.sellers,0);ok++}
+      else if(prev&&prev.items[id]){row[0]=prev.items[id][0];row[1]=prev.items[id][1];row[4]=prev.items[id][4]||0}
+      done++;step();}
+  }
+  await Promise.all([worker(),worker(),worker(),worker()]);
+  if(ok<LIVE_IDS.length*0.5){msg.textContent="The market API didn't answer for most items. Try again in a minute.";btn.disabled=false;btn.textContent="Refresh prices";busy=false;return}
+  const now=Math.floor(Date.now()/1000),sold={...(prev?prev.sold:{})};
+  if(!prev)for(const r of D.recipes)sold[r.out]=r.sold;
+  if(prev&&prev.at){const h=(now-prev.at)/3600;
+    if(h>0.15)for(const id in items){const p=prev.items[id],r=items[id];
+      if(p&&p[3]!=null&&r[3]!=null&&r[3]>=p[3]){const n=(r[3]-p[3])/h;sold[id]=sold[id]!=null?0.5*n+0.5*sold[id]:n}}}
+  for(const id in items)if(items[id][3]==null&&prev&&prev.items[id])items[id][3]=prev.items[id][3];
+  LIVE={at:now,items,sold,books:ok};liveState="live";
+  try{localStorage.setItem("craftplanner.live",JSON.stringify(LIVE))}catch(e){}
+  msg.textContent=ok<LIVE_IDS.length?`Updated. ${LIVE_IDS.length-ok} items didn't answer and kept their last price.`:"";
+  btn.disabled=false;btn.textContent="Refresh prices";busy=false;rerenderKeepFocus();
+}
+$("#refresh").hidden=false;
+$("#refresh").addEventListener("click",refreshLive);
+renderStatus();
+if(!LIVE||Date.now()/1000-LIVE.at>30*60)refreshLive();
+</script>
+</body>
+</html>
