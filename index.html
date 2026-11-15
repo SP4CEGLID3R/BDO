@@ -471,25 +471,38 @@ function renderStatus(){const dot=$("#dot"),t=$("#statusText");
   else{dot.className="dot off";t.textContent="Showing saved prices from "+new Date(D.base.at*1000).toLocaleString()}}
 const API="https://api.arsha.io/v2/eu/",IDS=Object.keys(D.items).filter(id=>!D.items[id].v&&!D.items[id].ns);
 let busy=false;
-async function getJSON(p){for(let t=0;t<5;t++){try{const r=await fetch(API+p,{cache:"no-store"});if(r.ok){const j=await r.json();if(!(j&&j.status===500))return j}}catch(e){}await new Promise(z=>setTimeout(z,1500*(t+1)))}return null}
-async function refreshLive(){
-  if(busy)return;busy=true;const btn=$("#refresh"),msg=$("#refreshMsg");btn.disabled=true;btn.textContent="Refreshing…";msg.hidden=false;
-  const prev=LIVE,items={};let done=0,ok=0;const step=()=>msg.textContent=`Fetching prices: ${done} of ${IDS.length}`;step();
+let failUntil=0;
+async function getJSON(p,tries=3){
+  for(let t=0;t<tries;t++){const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),10000);
+    try{const r=await fetch(API+p,{cache:"no-store",signal:ac.signal});clearTimeout(tm);
+      if(r.ok){const j=await r.json();if(!(j&&j.status===500))return j}}catch(e){clearTimeout(tm)}
+    if(t<tries-1)await new Promise(z=>setTimeout(z,800*(t+1)))}
+  return null}
+function endRefresh(text,failed){const btn=$("#refresh"),msg=$("#refreshMsg");
+  btn.disabled=false;btn.textContent="Refresh prices";busy=false;msg.textContent=text||"";msg.hidden=!text;
+  if(failed){failUntil=Date.now()+10*60000;liveState=LIVE?"live":"off"}renderStatus();rerender()}
+async function refreshLive(manual){
+  if(busy)return;if(!manual&&Date.now()<failUntil)return;
+  busy=true;const btn=$("#refresh"),msg=$("#refreshMsg");btn.disabled=true;btn.textContent="Refreshing…";msg.hidden=false;
+  const prev=LIVE,items={},started=Date.now();let done=0,ok=0,fail=0,stop=false;
+  const step=()=>msg.textContent=`Fetching prices: ${done} of ${IDS.length}`;step();
   for(let i=0;i<IDS.length;i+=40){const j=await getJSON("item?lang=en&"+IDS.slice(i,i+40).map(x=>"id="+x).join("&"));
     for(let x of (j||[])){if(Array.isArray(x))x=x[0];if(x&&x.id!=null)items[x.id]=[x.basePrice,null,x.currentStock,x.totalTrades,0,0,x.priceMin,x.priceMax,null]}}
+  if(Object.keys(items).length<IDS.length*0.5){endRefresh("The market API is busy right now, so prices weren't updated. It will try again in about 10 minutes, or press Refresh prices.",true);return}
   let k=0;
-  async function worker(){while(k<IDS.length){const id=IDS[k++];const b=await getJSON(`GetBiddingInfoList?id=${id}&sid=0&lang=en`);
+  async function worker(){while(k<IDS.length&&!stop){const id=IDS[k++];const b=await getJSON(`GetBiddingInfoList?id=${id}&sid=0&lang=en`,2);
     const row=items[id]||(items[id]=[null,null,0,null,0,0,null,null,null]);
     if(b&&b.orders){const asks=b.orders.filter(o=>o.sellers>0),bids=b.orders.filter(o=>o.buyers>0).map(o=>o.price);
       if(asks.length){row[0]=Math.min(...asks.map(o=>o.price));row[4]=1;row[5]=asks.filter(o=>o.price===row[0]).reduce((s,o)=>s+o.sellers,0)}else{row[4]=0;row[5]=0}
       row[1]=bids.length?Math.max(...bids):null;row[8]=b.orders.reduce((s,o)=>s+(o.buyers||0),0);row[2]=asks.reduce((s,o)=>s+o.sellers,0);ok++}
-    else{const p=prev&&prev.items[id]||D.items[id];if(Array.isArray(p)){row[0]=p[0];row[1]=p[1];row[4]=p[4];row[5]=p[5]}else if(p){row[0]=p.a;row[1]=p.b;row[4]=p.l;row[5]=p.q}}
-    done++;step()}}
-  await Promise.all([worker(),worker(),worker(),worker()]);
-  if(ok<IDS.length*0.5){msg.textContent="The market API didn't answer for most items. Try again in a minute.";btn.disabled=false;btn.textContent="Refresh prices";busy=false;liveState=LIVE?"live":"off";renderStatus();return}
+    else{fail++;const p=prev&&prev.items&&prev.items[id]||D.items[id];if(Array.isArray(p)){row[0]=p[0];row[1]=p[1];row[4]=p[4];row[5]=p[5];row[8]=p[8]??null}else if(p){row[0]=p.a;row[1]=p.b;row[4]=p.l;row[5]=p.q}
+      if(fail>=15&&fail>ok)stop=true}
+    if(Date.now()-started>150000)stop=true;
+    done++;step();await new Promise(z=>setTimeout(z,120))}}
+  await Promise.all([worker(),worker()]);
+  if(ok<IDS.length*0.5){endRefresh("The market API is busy right now, so prices weren't updated. It will try again in about 10 minutes, or press Refresh prices.",true);return}
   LIVE={at:Math.floor(Date.now()/1000),items,v:2};liveState="live";store.set("bdoplanner.live",LIVE);recordReading(LIVE.at,items);
-  msg.textContent=ok<IDS.length?`${IDS.length-ok} items didn't answer and kept their last price.`:"";msg.hidden=!msg.textContent;
-  btn.disabled=false;btn.textContent="Refresh prices";busy=false;rerender();
+  endRefresh(ok<IDS.length?`${IDS.length-ok} items didn't answer and kept their last price.`:"",false);
 }
 
 // ---------- views ----------
@@ -631,7 +644,7 @@ document.addEventListener("input",e=>{const t=e.target,ds=t.dataset||{};
 document.addEventListener("change",e=>{const t=e.target;if(t.id==="sort"){S.sort=t.value;save();render()}else if(t.id==="fame"){S.fame=+t.value;save();render()}});
 document.addEventListener("click",e=>{const t=e.target;
   const tab=t.closest("[role=tab]");if(tab){setView(tab.id.slice(4));return}
-  if(t.id==="refresh"){refreshLive();return}
+  if(t.id==="refresh"){refreshLive(true);return}
   if(t.id==="uc-on"||t.id==="uc-off"){S.undercut=t.id==="uc-on";save();syncControls();render();return}
   if(t.id==="mode-ask"||t.id==="mode-bid"){S.mode=t.id==="mode-bid"?"bid":"ask";save();syncControls();render();return}
   if(t.id==="reset"){S={...DEF};O={...O,price:{},qty:{},oq:{},sold:{},via:{}};save();syncControls();render();return}
