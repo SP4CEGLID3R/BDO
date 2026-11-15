@@ -368,8 +368,9 @@ const METH={proc:"Processing",simple:"Simple alchemy",cook:"Cooking",alch:"Alche
 const FILT=[["all","All"],["fav","★ Favourites"],["cup","Cups"],["proc","Processing"],["simple","Simple alchemy"],["cook","Cooking"],["alch","Alchemy"]].filter(([k])=>k==="all"||k==="fav"||D.recipes.some(r=>r.m===k));
 
 // ---------- market data ----------
-const item=id=>{const b=D.items[id],l=LIVE&&LIVE.items&&LIVE.items[id];if(!l||b.v||b.ns)return b;
-  return{...b,a:l[0]!=null?l[0]:b.a,b:l[1],s:l[2]!=null?l[2]:b.s,l:l[4],q:l[5],lo:l[6]!=null?l[6]:b.lo,hi:l[7]!=null?l[7]:b.hi,pre:l[8]}};
+let PRE=store.get("bdoplanner.pre")||{};const preOf=(id,l)=>l&&l[8]!=null?l[8]:PRE[id]&&Date.now()-PRE[id].at<3*3600e3?PRE[id].n:null;
+const item=id=>{const b=D.items[id],l=LIVE&&LIVE.items&&LIVE.items[id];if(b.v||b.ns)return b;if(!l)return{...b,pre:preOf(id,null)};
+  return{...b,a:l[0]!=null?l[0]:b.a,b:l[1],s:l[2]!=null?l[2]:b.s,l:l[4],q:l[5],lo:l[6]!=null?l[6]:b.lo,hi:l[7]!=null?l[7]:b.hi,pre:preOf(id,l)}};
 // ---------- sales history: built-in readings + this browser's readings ----------
 let HIST=store.get("bdoplanner.hist")||{t:[],tt:{}},H=null,RATES=null,PROF=null;
 function mergeHist(){
@@ -458,9 +459,9 @@ function calc(r){
 const about=n=>n==null?"":n<10?String(n):"~"+fmt(Number(n.toPrecision(n<100?1:2)));
 function shortages(r){const out=[];for(const[id,q0] of insOf(r)){const it=item(id),q=qtyOf(r,id,q0);
   if(it.v||it.ns||has(O.price[id])||q<=0||it.s==null)continue;
-  if(it.s<q)out.push({n:it.n,s:it.s,q,pre:it.pre})}return out}
+  if(it.s<q)out.push({id,n:it.n,s:it.s,q,pre:it.pre})}return out}
 function shortHtml(r){const sh=shortages(r);if(!sh.length)return"";
-  return`<div class="short">${sh.map(x=>`<span>${x.s===0?"None listed":`Only ${full(x.s)} listed (needs ${full(x.q)})`}: <b>${esc(x.n)}</b>${x.pre!=null?` · ${x.pre?about(x.pre)+" pre-orders waiting":"no pre-orders"}`:busy?" · checking pre-orders…":" · refresh prices to see pre-orders"}</span>`).join("")}</div>`}
+  return`<div class="short">${sh.map(x=>`<span>${x.s===0?"None listed":`Only ${full(x.s)} listed (needs ${full(x.q)})`}: <b>${esc(x.n)}</b>${x.pre!=null?` · ${x.pre?about(x.pre)+" pre-orders waiting":"no pre-orders"}`:busy||preBusy?" · checking pre-orders…":" · pre-orders unavailable right now"}</span>`).join("")}</div>`}
 const LIM={time:["p-time","Your crafting time"],buyers:["p-buyers","Buyers"],mats:["p-mats","Materials on market"],budget:["p-mats","Your silver"]};
 
 // ---------- status & refresh ----------
@@ -471,7 +472,15 @@ function renderStatus(){const dot=$("#dot"),t=$("#statusText");
   else{dot.className="dot off";t.textContent="Showing saved prices from "+new Date(D.base.at*1000).toLocaleString()}}
 const API="https://api.arsha.io/v2/eu/",IDS=Object.keys(D.items).filter(id=>!D.items[id].v&&!D.items[id].ns);
 let busy=false;
-let failUntil=0;
+let failUntil=0,preBusy=false;const preTried={};
+async function fillPreorders(){
+  if(preBusy||S.mode!=="ask")return;const need=[];
+  for(const r of D.recipes)for(const x of shortages(r))if(x.pre==null&&!need.includes(x.id)&&!(preTried[x.id]&&Date.now()-preTried[x.id]<5*60e3))need.push(x.id);
+  if(!need.length)return;preBusy=true;
+  for(const id of need){preTried[id]=Date.now();const b=await getJSON(`GetBiddingInfoList?id=${id}&sid=0&lang=en`,3);
+    if(b&&b.orders){PRE[id]={n:b.orders.reduce((s,o)=>s+(o.buyers||0),0),at:Date.now()};store.set("bdoplanner.pre",PRE)}
+    await new Promise(z=>setTimeout(z,300))}
+  preBusy=false;rerender()}
 async function getJSON(p,tries=3){
   for(let t=0;t<tries;t++){const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),10000);
     try{const r=await fetch(API+p,{cache:"no-store",signal:ac.signal});clearTimeout(tm);
@@ -489,19 +498,19 @@ async function refreshLive(manual){
   for(let i=0;i<IDS.length;i+=40){const j=await getJSON("item?lang=en&"+IDS.slice(i,i+40).map(x=>"id="+x).join("&"));
     for(let x of (j||[])){if(Array.isArray(x))x=x[0];if(x&&x.id!=null)items[x.id]=[x.basePrice,null,x.currentStock,x.totalTrades,0,0,x.priceMin,x.priceMax,null]}}
   if(Object.keys(items).length<IDS.length*0.5){endRefresh("The market API is busy right now, so prices weren't updated. It will try again in about 10 minutes, or press Refresh prices.",true);return}
-  let k=0;
-  async function worker(){while(k<IDS.length&&!stop){const id=IDS[k++];const b=await getJSON(`GetBiddingInfoList?id=${id}&sid=0&lang=en`,2);
+  const order=[...IDS].sort((a,b)=>(items[a]&&items[a][2]||0)-(items[b]&&items[b][2]||0));let k=0;
+  async function worker(){while(k<order.length&&!stop){const id=order[k++];const b=await getJSON(`GetBiddingInfoList?id=${id}&sid=0&lang=en`,2);
     const row=items[id]||(items[id]=[null,null,0,null,0,0,null,null,null]);
     if(b&&b.orders){const asks=b.orders.filter(o=>o.sellers>0),bids=b.orders.filter(o=>o.buyers>0).map(o=>o.price);
       if(asks.length){row[0]=Math.min(...asks.map(o=>o.price));row[4]=1;row[5]=asks.filter(o=>o.price===row[0]).reduce((s,o)=>s+o.sellers,0)}else{row[4]=0;row[5]=0}
-      row[1]=bids.length?Math.max(...bids):null;row[8]=b.orders.reduce((s,o)=>s+(o.buyers||0),0);row[2]=asks.reduce((s,o)=>s+o.sellers,0);ok++}
+      row[1]=bids.length?Math.max(...bids):null;row[8]=b.orders.reduce((s,o)=>s+(o.buyers||0),0);PRE[id]={n:row[8],at:Date.now()};row[2]=asks.reduce((s,o)=>s+o.sellers,0);ok++}
     else{fail++;const p=prev&&prev.items&&prev.items[id]||D.items[id];if(Array.isArray(p)){row[0]=p[0];row[1]=p[1];row[4]=p[4];row[5]=p[5];row[8]=p[8]??null}else if(p){row[0]=p.a;row[1]=p.b;row[4]=p.l;row[5]=p.q}
       if(fail>=15&&fail>ok)stop=true}
     if(Date.now()-started>150000)stop=true;
     done++;step();await new Promise(z=>setTimeout(z,120))}}
   await Promise.all([worker(),worker()]);
   if(ok<IDS.length*0.5){endRefresh("The market API is busy right now, so prices weren't updated. It will try again in about 10 minutes, or press Refresh prices.",true);return}
-  LIVE={at:Math.floor(Date.now()/1000),items,v:2};liveState="live";store.set("bdoplanner.live",LIVE);recordReading(LIVE.at,items);
+  store.set("bdoplanner.pre",PRE);LIVE={at:Math.floor(Date.now()/1000),items,v:2};liveState="live";store.set("bdoplanner.live",LIVE);recordReading(LIVE.at,items);
   endRefresh(ok<IDS.length?`${IDS.length-ok} items didn't answer and kept their last price.`:"",false);
 }
 
@@ -528,6 +537,7 @@ function renderCrafts(){
     </div>${open.has(r.id)?craftDetail(r,c):""}`).join("")||(S.filter==="fav"&&!Object.keys(O.fav||{}).length?`<div class="empty">No favourites yet. Tap the ☆ next to a craft to add it here.</div>`:`<div class="empty">No profitable craft matches.</div>`);
   if(lose.length)h+=`<div class="sect">${lose.length} craft${lose.length>1?"s":""} lose money at current prices and are hidden.</div>`;
   $("#list").innerHTML=h;
+  if(!busy&&!preBusy)setTimeout(fillPreorders,50);
 }
 function craftDetail(r,c){const out=item(r.out),afterTax=c.oq*c.sell*kept();
   const matRow=([id,q0])=>{const m=item(id),k=r.id+":"+id,q=qtyOf(r,id,q0);
