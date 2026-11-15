@@ -75,7 +75,7 @@ details.more[open] summary{margin-bottom:8px}
 .n{font-family:var(--mono);font-size:13px;text-align:right;white-space:nowrap}
 .n.big{font-size:14.5px;font-weight:500;color:var(--ink)}
 .n.dim{color:var(--ink2)}
-.v-crafts .row,.v-crafts .lhead{grid-template-columns:minmax(0,1fr) 104px 96px 84px 84px 52px}
+.v-crafts .row,.v-crafts .lhead{grid-template-columns:minmax(0,1fr) 110px 96px 96px 56px}
 .c-ph{color:var(--accent)}.c-ph .u{color:var(--muted);font-size:11px}
 .v-sales .row,.v-sales .lhead{grid-template-columns:minmax(0,1fr) 150px 88px 96px 90px 128px}
 .row.loss .nm,.row.loss .n{color:var(--muted)}
@@ -245,7 +245,7 @@ footer a{color:var(--ink2)}
         <div class="toolbar">
           <div class="chips" id="chips"></div>
           <input type="search" id="q" class="grow" placeholder="Search crafts or materials" aria-label="Search crafts or materials">
-          <select id="sort" aria-label="Sort by"><option value="profit">Profit per craft</option><option value="sph">Profit per hour</option><option value="margin">Margin</option><option value="cost">Cost</option><option value="sell">Sells for</option></select>
+          <select id="sort" aria-label="Sort by"><option value="profit">Profit per craft</option><option value="margin">Margin</option><option value="cost">Cost</option><option value="sell">Sells for</option></select>
         </div>
         <div class="list" id="list"></div>
       </section>
@@ -436,10 +436,10 @@ function rows(all){const q=all?"":$("#q").value.trim().toLowerCase();
 function renderCrafts(){
   const key={profit:x=>x.c.profit,sph:x=>x.c.sph,margin:x=>x.c.margin,cost:x=>x.c.cost,sell:x=>x.c.oq*x.c.sell}[S.sort]||(x=>x.c.profit);
   const all=rows(),keep=x=>x.c.profit>0||open.has(x.r.id),win=all.filter(keep).sort((a,b)=>key(b)-key(a)),lose=all.filter(x=>!keep(x));
-  let h=`<div class="lhead"><span>Craft</span><span>Profit / craft</span><span title="Estimate using the hours, wait and silver set in the Sales tab">Profit / hour</span><span>Cost</span><span>Sells for</span><span>Margin</span></div>`;
+  let h=`<div class="lhead"><span>Craft</span><span>Profit / craft</span><span>Cost</span><span>Sells for</span><span>Margin</span></div>`;
   h+=win.map(({r,c})=>`<div class="row${c.profit<=0?" loss":""}" tabindex="0" data-id="${r.id}" aria-expanded="${open.has(r.id)}">
-      <div><div class="nm">${esc(r.name)}</div><div class="meta">${METH[r.m]}${c.noList?" · nothing listed, base price used":""}</div><div class="mob">${c.sph>0?fmt(c.sph)+"/h est.":"no sales estimate now"} · cost ${fmt(c.cost)} · sells for ${fmt(c.oq*c.sell)}</div></div>
-      <div class="n big">${fmt(c.profit)}</div><div class="n c-ph" title="${c.sph>0?"Estimated with your Sales tab settings":LIM[c.lim][1]+" limits it to nothing right now"}">${c.sph>0?fmt(c.sph)+'<span class="u">/h</span>':'<span class="u">'+(c.lim==="mats"?"no materials":c.lim==="budget"?"over budget":"no sale in "+S.wait+" h")+'</span>'}</div><div class="n dim c-cost">${fmt(c.cost)}</div><div class="n dim c-sell">${fmt(c.oq*c.sell)}</div><div class="n dim c-margin">${Math.round(c.margin*100)}%</div>
+      <div><div class="nm">${esc(r.name)}</div><div class="meta">${METH[r.m]}${c.noList?" · nothing listed, base price used":""}</div><div class="mob">Cost ${fmt(c.cost)} · sells for ${fmt(c.oq*c.sell)}</div></div>
+      <div class="n big">${fmt(c.profit)}</div><div class="n dim c-cost">${fmt(c.cost)}</div><div class="n dim c-sell">${fmt(c.oq*c.sell)}</div><div class="n dim c-margin">${Math.round(c.margin*100)}%</div>
     </div>${open.has(r.id)?craftDetail(r,c):""}`).join("")||`<div class="empty">No profitable craft matches.</div>`;
   if(lose.length)h+=`<div class="sect">${lose.length} craft${lose.length>1?"s":""} lose money at current prices and are hidden.</div>`;
   $("#list").innerHTML=h;
