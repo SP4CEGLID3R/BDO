@@ -75,7 +75,8 @@ details.more[open] summary{margin-bottom:8px}
 .n{font-family:var(--mono);font-size:13px;text-align:right;white-space:nowrap}
 .n.big{font-size:14.5px;font-weight:500;color:var(--ink)}
 .n.dim{color:var(--ink2)}
-.v-crafts .row,.v-crafts .lhead{grid-template-columns:minmax(0,1fr) 116px 96px 96px 60px}
+.v-crafts .row,.v-crafts .lhead{grid-template-columns:minmax(0,1fr) 104px 96px 84px 84px 52px}
+.c-ph{color:var(--accent)}.c-ph .u{color:var(--muted);font-size:11px}
 .v-sales .row,.v-sales .lhead{grid-template-columns:minmax(0,1fr) 150px 88px 96px 90px 128px}
 .row.loss .nm,.row.loss .n{color:var(--muted)}
 .sph{display:flex;flex-direction:column;gap:4px;align-items:flex-end}
@@ -89,13 +90,56 @@ details.more[open] summary{margin-bottom:8px}
 @media (max-width:720px){
   .lhead{display:none}
   .v-crafts .row{grid-template-columns:minmax(0,1fr) auto;row-gap:2px}
-  .v-crafts .row .c-cost,.v-crafts .row .c-sell,.v-crafts .row .c-margin{display:none}
+  .v-crafts .row .c-cost,.v-crafts .row .c-sell,.v-crafts .row .c-margin,.v-crafts .row .c-ph{display:none}
   .v-sales .row{grid-template-columns:minmax(0,1fr) auto;row-gap:6px}
   .v-sales .row .s-mkt,.v-sales .row .s-queue,.v-sales .row .s-wait{display:none}
   .row .mob{display:block}
 }
 .mob{display:none;font-size:12px;color:var(--muted)}
-.detail{padding:14px;border-bottom:1px solid var(--line);background:var(--bg);display:flex;flex-direction:column;gap:12px;cursor:auto}
+.detail{padding:12px 14px 16px;border-bottom:1px solid var(--line);background:var(--bg);display:flex;flex-direction:column;gap:12px;cursor:auto}
+.dcard{background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:16px;box-shadow:0 1px 0 var(--line)}
+.flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:8px}
+.fbox{flex:1 1 140px;display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:8px;background:var(--bg);min-width:0}
+.fbox .k{font-size:11.5px;color:var(--muted);letter-spacing:.02em}
+.fbox .v{font-family:var(--display);font-size:22px;font-weight:600;line-height:1.15}
+.fbox .s{font-family:var(--mono);font-size:11.5px;color:var(--ink2)}
+.fbox.good{background:var(--accent-soft)}.fbox.good .v{color:var(--accent)}
+.farrow{align-self:center;color:var(--muted);font-size:16px}
+@media (max-width:640px){.farrow{display:none}.fbox{flex-basis:45%}}
+.dcols{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(220px,1fr);gap:20px}
+@media (max-width:900px){.dcols{grid-template-columns:minmax(0,1fr)}}
+.dsec{display:flex;flex-direction:column;gap:8px;min-width:0}
+.dsec h3{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500;margin:0}
+.dsec.side{padding-left:20px;border-left:1px solid var(--line)}
+@media (max-width:900px){.dsec.side{padding-left:0;border-left:0;border-top:1px solid var(--line);padding-top:14px}}
+table.mats td,table.mats th{border-bottom:1px dashed var(--line);padding:7px 6px}
+table.mats td:first-child{min-width:140px}
+table.mats .mname{display:block;font-weight:500}
+table.mats .msub{display:block;font-size:11.5px;color:var(--muted);font-family:var(--body)}
+table.mats td.x{color:var(--muted);padding:0 2px}
+table.mats td.tot{font-weight:500;color:var(--ink)}
+table.mats tr.total td{border-bottom:0;border-top:1px solid var(--line2);font-family:var(--body);font-weight:600;padding-top:10px}
+table.mats tr.total td.tot{font-family:var(--mono)}
+input.cell{font:inherit;font-family:var(--mono);font-size:13px;text-align:right;color:var(--ink);background:transparent;border:1px solid transparent;border-bottom:1px dashed var(--line2);border-radius:4px;padding:3px 6px;width:104px}
+input.cell.qty{width:64px}
+input.cell:hover{border-color:var(--line2)}
+input.cell:focus{background:var(--bg);border-color:var(--accent);border-style:solid;outline:none}
+input.cell::placeholder{color:var(--ink2);opacity:1}
+dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0;font-size:13px;align-items:center}
+dt{color:var(--muted)}dd{margin:0;text-align:right;font-family:var(--mono);overflow-wrap:anywhere}
+dd:first-of-type{font-family:var(--body);font-weight:500}
+@media (max-width:640px){
+  .dcard{padding:12px}
+  table.mats,table.mats tbody{display:block}
+  table.mats tr:first-child{display:none}
+  table.mats tr{display:grid;grid-template-columns:auto auto 1fr auto;align-items:center;gap:0 4px;border-bottom:1px dashed var(--line);padding:6px 0}
+  table.mats td{display:block;border:0!important;padding:2px 0}
+  table.mats td:first-child{grid-column:1/-1;min-width:0}
+  table.mats tr.total{grid-template-columns:1fr auto;border-bottom:0;border-top:1px solid var(--line2)}
+  table.mats tr.total td:empty{display:none}
+  table.mats tr.total td{padding-top:6px}
+  input.cell{width:92px}input.cell.qty{width:56px}
+}
 .stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
 .stat{display:flex;flex-direction:column;gap:1px;min-width:0}
 .stat .k{font-size:11.5px;color:var(--muted)}
@@ -185,7 +229,7 @@ footer a{color:var(--ink2)}
         <div class="toolbar">
           <div class="chips" id="chips"></div>
           <input type="search" id="q" class="grow" placeholder="Search crafts or materials" aria-label="Search crafts or materials">
-          <select id="sort" aria-label="Sort by"><option value="profit">Profit per craft</option><option value="margin">Margin</option><option value="cost">Cost</option><option value="sell">Sells for</option></select>
+          <select id="sort" aria-label="Sort by"><option value="profit">Profit per craft</option><option value="sph">Profit per hour</option><option value="margin">Margin</option><option value="cost">Cost</option><option value="sell">Sells for</option></select>
         </div>
         <div class="list" id="list"></div>
       </section>
@@ -312,39 +356,54 @@ function syncControls(){
   $("#sort").value=S.sort;
   $("#chips").innerHTML=FILT.map(([k,l])=>`<button class="chip" data-f="${k}" aria-pressed="${S.filter===k}">${l}</button>`).join("");
 }
-function priceInput(id,label){const it=item(id),ov=O.price[id];const ph=it.v?fmt(it.a):it.ns?"not sold":fmt(mktBuy(id));
-  return`<input class="num${has(ov)?" edited":""}" type="number" min="0" data-price="${id}" placeholder="${ph}" value="${has(ov)?ov:""}" aria-label="${esc(label||"Price of "+it.n)}">`}
+function priceInput(id,label,cls){const it=item(id),ov=O.price[id];const ph=it.v?fmt(it.a):it.ns?"not sold":fmt(mktBuy(id));
+  return`<input class="${cls||"num"}${has(ov)?" edited":""}" type="number" min="0" data-price="${id}" placeholder="${ph}" value="${has(ov)?ov:""}" aria-label="${esc(label||"Price of "+it.n)}">`}
 function rows(){const q=$("#q").value.trim().toLowerCase();
   return D.recipes.map(r=>({r,c:calc(r)})).filter(x=>(S.filter==="all"||x.r.m===S.filter)&&(!q||x.r.name.toLowerCase().includes(q)||x.r.ins.some(([id])=>D.items[id].n.toLowerCase().includes(q))))}
 
 function renderCrafts(){
-  const key={profit:x=>x.c.profit,margin:x=>x.c.margin,cost:x=>x.c.cost,sell:x=>x.c.oq*x.c.sell}[S.sort]||(x=>x.c.profit);
+  const key={profit:x=>x.c.profit,sph:x=>x.c.sph,margin:x=>x.c.margin,cost:x=>x.c.cost,sell:x=>x.c.oq*x.c.sell}[S.sort]||(x=>x.c.profit);
   const all=rows(),win=all.filter(x=>x.c.profit>0).sort((a,b)=>key(b)-key(a)),lose=all.filter(x=>x.c.profit<=0);
-  let h=`<div class="lhead"><span>Craft</span><span>Profit per craft</span><span>Cost</span><span>Sells for</span><span>Margin</span></div>`;
+  let h=`<div class="lhead"><span>Craft</span><span>Profit / craft</span><span title="Estimate using the hours, wait and silver set in the Sales tab">Profit / hour</span><span>Cost</span><span>Sells for</span><span>Margin</span></div>`;
   h+=win.map(({r,c})=>`<div class="row" tabindex="0" data-id="${r.id}" aria-expanded="${open.has(r.id)}">
-      <div><div class="nm">${esc(r.name)}</div><div class="meta">${METH[r.m]}${c.noList?" · nothing listed, base price used":""}</div><div class="mob">Cost ${fmt(c.cost)} · sells for ${fmt(c.oq*c.sell)} · ${Math.round(c.margin*100)}%</div></div>
-      <div class="n big">${fmt(c.profit)}</div><div class="n dim c-cost">${fmt(c.cost)}</div><div class="n dim c-sell">${fmt(c.oq*c.sell)}</div><div class="n dim c-margin">${Math.round(c.margin*100)}%</div>
+      <div><div class="nm">${esc(r.name)}</div><div class="meta">${METH[r.m]}${c.noList?" · nothing listed, base price used":""}</div><div class="mob">${c.sph>0?fmt(c.sph)+"/h est.":"no sales estimate now"} · cost ${fmt(c.cost)} · sells for ${fmt(c.oq*c.sell)}</div></div>
+      <div class="n big">${fmt(c.profit)}</div><div class="n c-ph" title="${c.sph>0?"Estimated with your Sales tab settings":LIM[c.lim][1]+" limits it to nothing right now"}">${c.sph>0?fmt(c.sph)+'<span class="u">/h</span>':'<span class="u">none now</span>'}</div><div class="n dim c-cost">${fmt(c.cost)}</div><div class="n dim c-sell">${fmt(c.oq*c.sell)}</div><div class="n dim c-margin">${Math.round(c.margin*100)}%</div>
     </div>${open.has(r.id)?craftDetail(r,c):""}`).join("")||`<div class="empty">No profitable craft matches.</div>`;
   if(lose.length)h+=`<div class="sect">${lose.length} craft${lose.length>1?"s":""} lose money at current prices and are hidden.</div>`;
   $("#list").innerHTML=h;
 }
-function craftDetail(r,c){const out=item(r.out);
-  const ing=r.ins.map(([id,q0])=>{const m=item(id),k=r.id+":"+id,q=qtyOf(r,id,q0);
-    return`<tr><td>${esc(m.n)}</td><td><input class="num qty${has(O.qty[k])?" edited":""}" type="number" min="0" step="any" data-qty="${k}" placeholder="${q0}" value="${has(O.qty[k])?O.qty[k]:""}" aria-label="Amount of ${esc(m.n)}"></td><td>${priceInput(id)}</td><td>${full(buyPrice(id)*q)}</td><td>${m.v?"vendor":m.s==null?"–":full(m.s)}</td></tr>`}).join("");
-  return`<div class="detail">
-    <div class="stats">
-      <div class="stat hl"><span class="k">Profit per craft</span><span class="v">${full(c.profit)}</span></div>
-      <div class="stat"><span class="k">Profit per unit</span><span class="v">${full(c.unit)}</span></div>
-      <div class="stat"><span class="k">Units per craft</span><span class="v">${+c.oq.toFixed(2)}</span></div>
-      <div class="stat"><span class="k">After-tax sale</span><span class="v">${full(c.oq*c.sell*kept())}</span></div>
+function craftDetail(r,c){const out=item(r.out),afterTax=c.oq*c.sell*kept();
+  const mats=r.ins.map(([id,q0])=>{const m=item(id),k=r.id+":"+id,q=qtyOf(r,id,q0);
+    return`<tr><td><span class="mname">${esc(m.n)}</span><span class="msub">${m.v?"vendor item":m.ns?"not on market":m.s==null?"":full(m.s)+" listed"}</span></td>
+      <td><input class="cell qty${has(O.qty[k])?" edited":""}" type="number" min="0" step="any" data-qty="${k}" placeholder="${q0}" value="${has(O.qty[k])?O.qty[k]:""}" aria-label="Amount of ${esc(m.n)}"></td>
+      <td class="x">×</td><td>${priceInput(id,null,"cell")}</td><td class="tot">${full(buyPrice(id)*q)}</td></tr>`}).join("");
+  return`<div class="detail" role="region" aria-label="${esc(r.name)} details"><div class="dcard">
+    <div class="flow">
+      <div class="fbox"><span class="k">Price to craft</span><span class="v">${fmt(c.cost)}</span><span class="s">${full(c.cost)}</span></div>
+      <div class="farrow" aria-hidden="true">→</div>
+      <div class="fbox"><span class="k">Sells for</span><span class="v">${fmt(c.oq*c.sell)}</span><span class="s">${full(afterTax)} after tax</span></div>
+      <div class="farrow" aria-hidden="true">→</div>
+      <div class="fbox good"><span class="k">Profit per craft</span><span class="v">${fmt(c.profit)}</span><span class="s">${c.oq!==1?fmt(c.unit)+" per unit · ":""}${Math.round(c.margin*100)}% margin</span></div>
+      <div class="fbox good"><span class="k">Profit per hour (est.)</span><span class="v">${c.sph>0?fmt(c.sph):"–"}</span><span class="s">${c.sph>0?LIM[c.lim][1].toLowerCase()+" limits it":c.lim==="mats"?"not enough materials listed right now":c.lim==="budget"?"one craft costs more than your silver":"no sales expected in your wait"}</span></div>
     </div>
-    <div class="scroll"><table>
-      <tr><th>Material</th><th>Amount</th><th>Unit price</th><th>Cost</th><th>Listed</th></tr>${ing}
-      <tr class="sum"><td>Price to craft</td><td></td><td></td><td>${full(c.cost)}</td><td></td></tr>
-      <tr><td>Sells: ${esc(out.n)} <span class="hint">cheapest listing${c.noList?", none listed now":""}</span></td><td><input class="num qty${has(O.oq[r.id])?" edited":""}" type="number" min="0" step="any" data-oq="${r.id}" placeholder="${r.oq}" value="${has(O.oq[r.id])?O.oq[r.id]:""}" aria-label="Units made per craft"></td><td>${priceInput(r.out,"Sell price")}</td><td>${full(c.oq*c.sell)}</td><td>${out.s==null?"–":full(out.s)}</td></tr>
-    </table></div>
-    <div><button class="btn" data-goto-sales="${r.id}">See sales estimate</button></div>
-  </div>`}
+    <div class="dcols">
+      <div class="dsec"><h3>Materials for one craft</h3>
+        <div class="scroll"><table class="mats"><tr><th>Material</th><th>Amount</th><th></th><th>Unit price</th><th>Cost</th></tr>${mats}
+        <tr class="total"><td>Price to craft</td><td></td><td></td><td></td><td class="tot">${full(c.cost)}</td></tr></table></div>
+      </div>
+      <div class="dsec side"><h3>Selling</h3>
+        <dl>
+          <dt>Product</dt><dd>${esc(out.n)}</dd>
+          <dt>Units per craft</dt><dd><input class="cell qty${has(O.oq[r.id])?" edited":""}" type="number" min="0" step="any" data-oq="${r.id}" placeholder="${r.oq}" value="${has(O.oq[r.id])?O.oq[r.id]:""}" aria-label="Units made per craft"></dd>
+          <dt>Price (cheapest listing)</dt><dd>${priceInput(r.out,"Sell price","cell")}</dd>
+          <dt>Listed now</dt><dd>${out.s==null?"–":full(out.s)}${c.noList?" (base price used)":""}</dd>
+          <dt>Sold per hour</dt><dd>${fmt(c.rate)}</dd>
+          <dt>First sale in</dt><dd>${dur(c.firstWait)}</dd>
+        </dl>
+        <button class="btn" data-goto-sales="${r.id}">Full sales estimate</button>
+      </div>
+    </div>
+  </div></div>`}
 
 function renderSales(){
   const all=rows().filter(x=>x.c.profit>0).sort((a,b)=>b.c.sph-a.c.sph||b.c.profit-a.c.profit),max=Math.max(1,...all.map(x=>x.c.sph));
