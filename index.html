@@ -460,7 +460,7 @@ function shortages(r){const out=[];for(const[id,q0] of insOf(r)){const it=item(i
   if(it.v||it.ns||has(O.price[id])||q<=0||it.s==null)continue;
   if(it.s<q)out.push({n:it.n,s:it.s,q,pre:it.pre})}return out}
 function shortHtml(r){const sh=shortages(r);if(!sh.length)return"";
-  return`<div class="short">${sh.map(x=>`<span>${x.s===0?"None listed":`Only ${full(x.s)} listed (needs ${full(x.q)})`}: <b>${esc(x.n)}</b>${x.pre!=null?` · ${x.pre?about(x.pre)+" pre-orders waiting":"no pre-orders"}`:""}</span>`).join("")}</div>`}
+  return`<div class="short">${sh.map(x=>`<span>${x.s===0?"None listed":`Only ${full(x.s)} listed (needs ${full(x.q)})`}: <b>${esc(x.n)}</b>${x.pre!=null?` · ${x.pre?about(x.pre)+" pre-orders waiting":"no pre-orders"}`:busy?" · checking pre-orders…":" · refresh prices to see pre-orders"}</span>`).join("")}</div>`}
 const LIM={time:["p-time","Your crafting time"],buyers:["p-buyers","Buyers"],mats:["p-mats","Materials on market"],budget:["p-mats","Your silver"]};
 
 // ---------- status & refresh ----------
@@ -487,7 +487,7 @@ async function refreshLive(){
     done++;step()}}
   await Promise.all([worker(),worker(),worker(),worker()]);
   if(ok<IDS.length*0.5){msg.textContent="The market API didn't answer for most items. Try again in a minute.";btn.disabled=false;btn.textContent="Refresh prices";busy=false;liveState=LIVE?"live":"off";renderStatus();return}
-  LIVE={at:Math.floor(Date.now()/1000),items};liveState="live";store.set("bdoplanner.live",LIVE);recordReading(LIVE.at,items);
+  LIVE={at:Math.floor(Date.now()/1000),items,v:2};liveState="live";store.set("bdoplanner.live",LIVE);recordReading(LIVE.at,items);
   msg.textContent=ok<IDS.length?`${IDS.length-ok} items didn't answer and kept their last price.`:"";msg.hidden=!msg.textContent;
   btn.disabled=false;btn.textContent="Refresh prices";busy=false;rerender();
 }
@@ -653,7 +653,7 @@ mergeHist();
 {const c=store.get("bdoplanner.live");if(c&&c.items&&c.at>D.base.at){LIVE=c;liveState="live"}else liveState="off"}
 syncControls();setView(["sales","prices"].includes(location.hash.slice(1))?location.hash.slice(1):"crafts");
 setInterval(renderStatus,60000);
-if(!LIVE||Date.now()/1000-LIVE.at>1800)refreshLive();
+if(!LIVE||LIVE.v!==2||Date.now()/1000-LIVE.at>1800)refreshLive();
 setInterval(()=>{if(document.visibilityState==="visible"&&!busy&&(!LIVE||Date.now()/1000-LIVE.at>1800))refreshLive()},60000);
 </script>
 </body>
