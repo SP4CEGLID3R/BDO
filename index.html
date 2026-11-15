@@ -138,6 +138,15 @@ input.cell::placeholder{color:var(--ink2);opacity:1}
 dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0;font-size:13px;align-items:center}
 dt{color:var(--muted)}dd{margin:0;text-align:right;font-family:var(--mono);overflow-wrap:anywhere}
 dd:first-of-type{font-family:var(--body);font-weight:500}
+.batch{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:14px;background:var(--panel2);border:1px dashed var(--line2)}
+.bhead{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
+.bhead h3{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--grape);font-weight:800;margin:0}
+.bn{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px}
+.bn input.cell{width:84px;border:1px solid var(--line2);background:var(--panel)}
+table.shop td:first-child{min-width:170px}
+table.shop .bad{display:block;font-size:11.5px;font-weight:700;color:var(--bad)}
+table.shop .hint{display:block;font-size:11.5px}
+.lossbox{background:var(--bad-soft)}.lossbox .v{color:var(--bad)}
 .best{display:flex;flex-direction:column;gap:6px;padding-top:6px}
 .best h3{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500;margin:0}
 .besttxt{margin:0;font-size:13px;color:var(--ink2)}.besttxt b{color:var(--ink)}
@@ -360,7 +369,7 @@ const full=n=>n==null||!isFinite(n)?"–":Math.round(n).toLocaleString("en-US");
 const dur=h=>!isFinite(h)?"never":h<1/60?"now":h<1?Math.round(h*60)+" min":h<48?(+h.toFixed(1))+" h":Math.round(h/24)+" days";
 const has=v=>v!=null&&v!=="";
 const DEF={vp:true,fame:0,ring:false,mode:"ask",mastery:400,mpsec:75,simple:7.5,cup:10,cook:1,alch:1.5,hours:1,wait:12,undercut:true,budget:10000000000,filter:"all",sort:"profit",ssort:"sph"};
-let S={...DEF},O={price:{},qty:{},oq:{},sold:{},via:{},fav:{}},LIVE=null,liveState="loading",view="crafts",open=new Set(),sopen=new Set(),popen=new Set(),psort={k:"n",d:1};
+let S={...DEF},O={price:{},qty:{},oq:{},sold:{},via:{},fav:{},n:{}},LIVE=null,liveState="loading",view="crafts",open=new Set(),sopen=new Set(),popen=new Set(),psort={k:"n",d:1};
 const store={get(k){try{return JSON.parse(localStorage.getItem(k)||"null")}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 {const j=store.get("bdoplanner");if(j){S={...DEF,...j.S};O={...O,...j.O}}}
 const save=()=>store.set("bdoplanner",{S,O});
@@ -369,7 +378,9 @@ const FILT=[["all","All"],["fav","★ Favourites"],["cup","Cups"],["proc","Proce
 
 // ---------- market data ----------
 let PRE=store.get("bdoplanner.pre")||{};const preOf=(id,l)=>l&&l[8]!=null?l[8]:PRE[id]&&Date.now()-PRE[id].at<3*3600e3?PRE[id].n:null;
-const item=id=>{const b=D.items[id],l=LIVE&&LIVE.items&&LIVE.items[id];if(b.v||b.ns)return b;if(!l)return{...b,pre:preOf(id,null)};
+const item=id=>{const x=item0(id),bk=typeof BOOK!=="undefined"&&BOOK[id];if(!bk||bk.fail||x.v||x.ns||Date.now()-bk.at>10*60e3||bk.at<(LIVE?LIVE.at*1000:0))return x;
+  const asks=bk.asks;return{...x,a:asks.length?asks[0][0]:x.a,s:asks.reduce((t,a)=>t+a[1],0),l:asks.length?1:0,q:asks.length?asks[0][1]:0,pre:bk.pre}};
+const item0=id=>{const b=D.items[id],l=LIVE&&LIVE.items&&LIVE.items[id];if(b.v||b.ns)return b;if(!l)return{...b,pre:preOf(id,null)};
   return{...b,a:l[0]!=null?l[0]:b.a,b:l[1],s:l[2]!=null?l[2]:b.s,l:l[4],q:l[5],lo:l[6]!=null?l[6]:b.lo,hi:l[7]!=null?l[7]:b.hi,pre:preOf(id,l)}};
 // ---------- sales history: built-in readings + this browser's readings ----------
 let HIST=store.get("bdoplanner.hist")||{t:[],tt:{}},H=null,RATES=null,PROF=null;
@@ -539,7 +550,51 @@ function renderCrafts(){
   $("#list").innerHTML=h;
   if(!busy&&!preBusy)setTimeout(fillPreorders,50);
 }
+var BOOK={},bookWait=new Set();
+async function loadBooks(ids){let any=false;
+  for(const id of ids){if(BOOK[id]&&Date.now()-BOOK[id].at<10*60e3||bookWait.has(id))continue;bookWait.add(id);any=true;
+    const b=await getJSON(`GetBiddingInfoList?id=${id}&sid=0&lang=en`,2);bookWait.delete(id);
+    BOOK[id]=b&&b.orders?{at:Date.now(),asks:b.orders.filter(o=>o.sellers>0).map(o=>[o.price,o.sellers]).sort((x,y)=>x[0]-y[0]),pre:b.orders.reduce((t,o)=>t+(o.buyers||0),0)}:{at:Date.now(),fail:1};
+    await new Promise(z=>setTimeout(z,200))}
+  if(any)rerender()}
+function buyCost(id,units){const it=item(id);
+  if(has(O.price[id]))return{cost:+O.price[id]*units,exact:true,short:0,src:"your price"};
+  if(it.v)return{cost:it.a*units,exact:true,short:0,src:"vendor"};
+  if(it.ns)return{cost:0,exact:true,short:0,src:"not on market"};
+  if(S.mode==="bid")return{cost:(it.b||it.a)*units,exact:false,short:0,src:"buy order"};
+  const bk=BOOK[id];
+  if(!bk||bk.fail)return{cost:it.a*units,exact:false,short:it.s!=null?Math.max(0,units-it.s):0,loading:!bk,src:"cheapest listing"};
+  let left=units,cost=0,top=null,lv=0;for(const[p,cnt] of bk.asks){const t=Math.min(left,cnt);cost+=t*p;left-=t;top=p;lv++;if(left<=0)break}
+  const short=Math.max(0,left);if(short)cost+=short*(top??it.a);
+  return{cost,exact:!short,short,top,lv,low:bk.asks.length?bk.asks[0][0]:null,pre:bk.pre,src:"listings"}}
+const batchN=r=>{const v=O.n&&O.n[r.id];return has(v)&&+v>0?Math.floor(+v):1};
+function batchHtml(r,c){
+  const N=batchN(r),list=insOf(r),units=N*c.oq;let pay=0,shortAny=false,loading=false;
+  const rowsH=list.map(([id,q0])=>{const m=item(id),need=qtyOf(r,id,q0)*N,bc=buyCost(id,need);pay+=bc.cost;if(bc.short)shortAny=true;if(bc.loading)loading=true;
+    const avg=need>0?bc.cost/need:0;
+    let note=bc.short?`<span class="bad">${need-bc.short>0?`Only ${full(need-bc.short)} listed, ${full(bc.short)} short`:`None listed right now, ${full(bc.short)} short`}${(bc.pre??m.pre)!=null?` · ${about(bc.pre??m.pre)} pre-orders`:""}</span>`
+      :bc.lv>1?`<span class="hint">price climbs from ${fmt(bc.low)} to ${fmt(bc.top)}</span>`:bc.src==="listings"?`<span class="hint">all at ${fmt(bc.low)}</span>`:`<span class="hint">${bc.src}</span>`;
+    return`<tr><td><span class="mname">${esc(m.n)}</span>${note}</td><td>${full(need)}</td><td>${need>0?full(avg):"–"}</td><td class="tot">${full(bc.cost)}</td></tr>`}).join("");
+  const gross=units*c.sell,net=gross*kept(),profit=net-pay,rate=c.rate,quick=[1,10,100];
+  let maxBuy=isFinite(c.stockN)?c.stockN:null;{let mb=Infinity,all=true;for(const[id,q0] of list){const it=item(id),q=qtyOf(r,id,q0);if(it.v||it.ns||has(O.price[id])||q<=0)continue;const bk=BOOK[id];if(!bk||bk.fail){all=false;break}mb=Math.min(mb,Math.floor(bk.asks.reduce((t,a)=>t+a[1],0)/q))}if(all&&isFinite(mb))maxBuy=mb}
+  const maxSilver=c.cost>0?Math.floor(S.budget/c.cost):null;
+  return`<div class="batch">
+    <div class="bhead"><h3>Plan a batch</h3>
+      <label class="bn">Crafts <input class="cell qty${has(O.n&&O.n[r.id])?" edited":""}" type="number" min="1" step="1" data-batch="${r.id}" value="${N}" aria-label="Number of crafts"></label>
+      <div class="chips">${quick.map(q=>`<button class="chip" data-setn="${r.id}" data-v="${q}" aria-pressed="${N===q}">${q}</button>`).join("")}${maxBuy>0?`<button class="chip" data-setn="${r.id}" data-v="${maxBuy}" title="As many as the listed materials allow">Max listed (${full(maxBuy)})</button>`:""}${maxSilver?`<button class="chip" data-setn="${r.id}" data-v="${maxSilver}" title="As many as your silver to spend allows">Max for ${fmt(S.budget)} (${full(maxSilver)})</button>`:""}</div></div>
+    <div class="scroll"><table class="mats shop"><tr><th>Buy</th><th>Amount</th><th>Avg price</th><th>Total</th></tr>${rowsH}
+      <tr class="total"><td>You pay</td><td></td><td></td><td class="tot">${full(pay)}</td></tr></table></div>
+    <div class="flow">
+      <div class="fbox"><span class="k">You pay</span><span class="v">${fmt(pay)}</span><span class="s">${full(pay)}${loading?" · loading exact prices…":shortAny?" · not enough listed":""}</span></div>
+      <div class="farrow" aria-hidden="true">→</div>
+      <div class="fbox"><span class="k">You make</span><span class="v">${full(units)}</span><span class="s">${esc(item(r.out).n)} · ${dur(N*c.sec/3600)} crafting</span></div>
+      <div class="farrow" aria-hidden="true">→</div>
+      <div class="fbox"><span class="k">You get after tax</span><span class="v">${fmt(net)}</span><span class="s">${full(units)} × ${full(c.sell)} = ${fmt(gross)} before tax</span></div>
+      <div class="fbox ${profit>0?"good":"lossbox"}"><span class="k">Profit</span><span class="v">${fmt(profit)}</span><span class="s">${N>0?fmt(profit/N)+" per craft":""}${rate>0?` · ~${dur(units/rate)} to sell at market pace`:""}</span></div>
+    </div>
+  </div>`}
 function craftDetail(r,c){const out=item(r.out),afterTax=c.oq*c.sell*kept();
+  {const ids=insOf(r).map(([i])=>i).filter(i=>!D.items[i].v&&!D.items[i].ns);if(ids.some(i=>!BOOK[i]||Date.now()-BOOK[i].at>=10*60e3))setTimeout(()=>loadBooks(ids),30)}
   const matRow=([id,q0])=>{const m=item(id),k=r.id+":"+id,q=qtyOf(r,id,q0);
     return`<tr><td><span class="mname">${esc(m.n)}</span><span class="msub">${m.v?"vendor item":m.ns?"not on market":m.s==null?"":full(m.s)+" listed"}</span></td>
       <td><input class="cell qty${has(O.qty[k])?" edited":""}" type="number" min="0" step="any" data-qty="${k}" placeholder="${q0}" value="${has(O.qty[k])?O.qty[k]:""}" aria-label="Amount of ${esc(m.n)}"></td>
@@ -565,6 +620,7 @@ function craftDetail(r,c){const out=item(r.out),afterTax=c.oq*c.sell*kept();
       <div class="fbox good"><span class="k">Profit per craft</span><span class="v">${fmt(c.profit)}</span><span class="s">${c.oq!==1?fmt(c.unit)+" per unit · ":""}${Math.round(c.margin*100)}% margin</span></div>
       <div class="fbox good"><span class="k">Profit per hour (est.)</span><span class="v">${c.sph>0?fmt(c.sph):"–"}</span><span class="s">${c.sph>0?LIM[c.lim][1].toLowerCase()+" limits it":c.lim==="mats"?"not enough materials listed right now":c.lim==="budget"?"one craft costs more than your silver":"no sales expected in your wait"}</span></div>
     </div>
+    ${batchHtml(r,c)}
     <div class="dcols">
       <div class="dsec"><h3>${r.via?"How to build it":"Materials for one craft"}</h3>${pathBox}
         <div class="scroll"><table class="mats"><tr><th>Material</th><th>Amount</th><th></th><th>Unit price</th><th>Cost</th></tr>${mats}
@@ -639,7 +695,7 @@ function render(){
   if(view==="crafts")renderCrafts();else if(view==="sales")renderSales();else renderPrices();
 }
 function rerender(){const f=document.activeElement;let sel=null,pos=null;
-  if(f&&f.dataset)for(const k of ["price","qty","oq","sold"])if(f.dataset[k]!=null){sel=`[data-${k}="${f.dataset[k]}"]`;break}
+  if(f&&f.dataset)for(const k of ["price","qty","oq","sold","batch"])if(f.dataset[k]!=null){sel=`[data-${k}="${f.dataset[k]}"]`;break}
   try{pos=f.selectionStart}catch(e){}
   render();if(sel){const n=document.querySelector(sel);if(n&&n!==f){n.focus();try{if(pos!=null)n.setSelectionRange(pos,pos)}catch(e){}}}}
 function setView(v){view=v;for(const t of ["crafts","sales","prices"]){$("#tab-"+t).setAttribute("aria-selected",t===v);const s=$("#view-"+t);s.hidden=t!==v;s.style.display=t===v?"flex":""}
@@ -647,7 +703,7 @@ function setView(v){view=v;for(const t of ["crafts","sales","prices"]){$("#tab-"
 
 const num=(v,d)=>{const n=parseFloat(v);return isFinite(n)&&n>0?n:d};
 document.addEventListener("input",e=>{const t=e.target,ds=t.dataset||{};
-  for(const[k,o] of [["price",O.price],["qty",O.qty],["oq",O.oq],["sold",O.sold]])if(ds[k]!=null){if(t.value==="")delete o[ds[k]];else o[ds[k]]=t.value;save();rerender();return}
+  O.n=O.n||{};for(const[k,o] of [["price",O.price],["qty",O.qty],["oq",O.oq],["sold",O.sold],["batch",O.n]])if(ds[k]!=null){if(t.value==="")delete o[ds[k]];else o[ds[k]]=t.value;save();rerender();return}
   if(t.id==="q"||t.id==="pq"||t.id==="onlyEdited"){render();return}
   const map={vp:"vp",ring:"ring",mastery:"mastery",mpsec:"mpsec","s-simple":"simple","s-cup":"cup","s-cook":"cook","s-alch":"alch",hours:"hours",wait:"wait",budget:"budget",sfav:"sfav"}[t.id];
   if(!map)return;S[map]=t.type==="checkbox"?t.checked:map==="mastery"||map==="budget"?Math.max(0,parseFloat(t.value)||0):num(t.value,DEF[map]);save();rerender()});
@@ -659,6 +715,7 @@ document.addEventListener("click",e=>{const t=e.target;
   if(t.id==="mode-ask"||t.id==="mode-bid"){S.mode=t.id==="mode-bid"?"bid":"ask";save();syncControls();render();return}
   if(t.id==="reset"){S={...DEF};O={...O,price:{},qty:{},oq:{},sold:{},via:{}};save();syncControls();render();return}
   if(t.id==="clearPrices"){O.price={};save();render();return}
+  const sn=t.closest("[data-setn]");if(sn){O.n=O.n||{};O.n[sn.dataset.setn]=sn.dataset.v;save();render();return}
   const fv=t.closest("[data-fav]");if(fv){const id=fv.dataset.fav;O.fav=O.fav||{};if(O.fav[id])delete O.fav[id];else O.fav[id]=1;save();render();return}
   const vb=t.closest("[data-via]");if(vb){O.via[vb.dataset.via]=vb.dataset.mode;save();render();return}
   const chip=t.closest(".chip[data-f]");if(chip){S.filter=chip.dataset.f;save();syncControls();render();return}
