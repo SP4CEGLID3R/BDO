@@ -119,6 +119,7 @@ details.more[open] summary{margin-bottom:8px}
 table.mats td,table.mats th{border-bottom:1px dashed var(--line);padding:7px 6px}
 table.mats td:first-child{min-width:140px}
 table.mats .mname{display:block;font-weight:500}
+table.mats .msub.bad{color:var(--bad);font-weight:700}
 table.mats .msub{display:block;font-size:11.5px;color:var(--muted);font-family:var(--body)}
 table.mats td.x{color:var(--muted);padding:0 2px}
 table.mats td.tot{font-weight:500;color:var(--ink)}
@@ -437,7 +438,8 @@ const tick=p=>p>=100?Math.pow(10,Math.floor(Math.log10(p))-2):1;
 const kept=()=>0.65*(1+(S.vp?0.3:0)+(+S.fame)+(S.ring?0.05:0));
 const perMP=()=>{let c=D.mastery[0][1];for(const[m,n] of D.mastery)if(+S.mastery>=m)c=n;return c};
 const secFor=m=>m==="proc"?S.mpsec/perMP():m==="simple"?S.simple:m==="cup"?S.cup:m==="cook"?S.cook:m==="alch"?S.alch:600;
-const mktBuy=id=>{const it=item(id);return S.mode==="bid"&&it.b?it.b:it.a};
+const noListing=it=>!it.v&&!it.ns&&(it.l===0||it.s===0);
+const mktBuy=id=>{const it=item(id);if(S.mode==="bid")return it.b||it.a;return noListing(it)&&it.hi?it.hi:it.a};
 const buyPrice=id=>has(O.price[id])?+O.price[id]:mktBuy(id);
 const sellPrice=id=>has(O.price[id])?+O.price[id]:item(id).a;
 const qtyOf=(r,id,q)=>has(O.qty[r.id+":"+id])?+O.qty[r.id+":"+id]:q;
@@ -563,16 +565,17 @@ function buyCost(id,units){const it=item(id);
   if(it.ns)return{cost:0,exact:true,short:0,src:"not on market"};
   if(S.mode==="bid")return{cost:(it.b||it.a)*units,exact:false,short:0,src:"buy order"};
   const bk=BOOK[id];
-  if(!bk||bk.fail)return{cost:it.a*units,exact:false,short:it.s!=null?Math.max(0,units-it.s):0,loading:!bk,src:"cheapest listing"};
+  const maxP=it.hi||it.a;
+  if(!bk||bk.fail){const sh=it.s!=null?Math.max(0,Math.min(units,units-it.s)):0;return{cost:(units-sh)*it.a+sh*(noListing(it)?maxP:Math.max(it.a,maxP)),exact:false,short:sh,loading:!bk,src:"cheapest listing",maxP}}
   let left=units,cost=0,top=null,lv=0;for(const[p,cnt] of bk.asks){const t=Math.min(left,cnt);cost+=t*p;left-=t;top=p;lv++;if(left<=0)break}
-  const short=Math.max(0,left);if(short)cost+=short*(top??it.a);
-  return{cost,exact:!short,short,top,lv,low:bk.asks.length?bk.asks[0][0]:null,pre:bk.pre,src:"listings"}}
+  const short=Math.max(0,left);if(short)cost+=short*Math.max(maxP,top||0);
+  return{cost,exact:!short,short,top,lv,low:bk.asks.length?bk.asks[0][0]:null,pre:bk.pre,src:"listings",maxP}}
 const batchN=r=>{const v=O.n&&O.n[r.id];return has(v)&&+v>0?Math.floor(+v):1};
 function batchHtml(r,c){
   const N=batchN(r),list=insOf(r),units=N*c.oq;let pay=0,shortAny=false,loading=false;
   const rowsH=list.map(([id,q0])=>{const m=item(id),need=qtyOf(r,id,q0)*N,bc=buyCost(id,need);pay+=bc.cost;if(bc.short)shortAny=true;if(bc.loading)loading=true;
     const avg=need>0?bc.cost/need:0;
-    let note=bc.short?`<span class="bad">${need-bc.short>0?`Only ${full(need-bc.short)} listed, ${full(bc.short)} short`:`None listed right now, ${full(bc.short)} short`}${(bc.pre??m.pre)!=null?` · ${about(bc.pre??m.pre)} pre-orders`:""}</span>`
+    let note=bc.short?`<span class="bad">${need-bc.short>0?`Only ${full(need-bc.short)} listed, ${full(bc.short)} short`:`None listed right now, ${full(bc.short)} short`} · pre-order at max ${fmt(bc.maxP)}${(bc.pre??m.pre)!=null?` · ${about(bc.pre??m.pre)} pre-orders`:""}</span>`
       :bc.lv>1?`<span class="hint">price climbs from ${fmt(bc.low)} to ${fmt(bc.top)}</span>`:bc.src==="listings"?`<span class="hint">all at ${fmt(bc.low)}</span>`:`<span class="hint">${bc.src}</span>`;
     return`<tr><td><span class="mname">${esc(m.n)}</span>${note}</td><td>${full(need)}</td><td>${need>0?full(avg):"–"}</td><td class="tot">${full(bc.cost)}</td></tr>`}).join("");
   const gross=units*c.sell,net=gross*kept(),profit=net-pay,rate=c.rate,quick=[1,10,100];
@@ -596,7 +599,7 @@ function batchHtml(r,c){
 function craftDetail(r,c){const out=item(r.out),afterTax=c.oq*c.sell*kept();
   {const ids=insOf(r).map(([i])=>i).filter(i=>!D.items[i].v&&!D.items[i].ns);if(ids.some(i=>!BOOK[i]||Date.now()-BOOK[i].at>=10*60e3))setTimeout(()=>loadBooks(ids),30)}
   const matRow=([id,q0])=>{const m=item(id),k=r.id+":"+id,q=qtyOf(r,id,q0);
-    return`<tr><td><span class="mname">${esc(m.n)}</span><span class="msub">${m.v?"vendor item":m.ns?"not on market":m.s==null?"":full(m.s)+" listed"}</span></td>
+    return`<tr><td><span class="mname">${esc(m.n)}</span><span class="msub${noListing(m)&&S.mode==="ask"&&!has(O.price[id])?" bad":""}">${m.v?"vendor item":m.ns?"not on market":noListing(m)&&S.mode==="ask"?"none listed · priced at max "+fmt(m.hi||m.a)+" (pre-order)":m.s==null?"":full(m.s)+" listed"}</span></td>
       <td><input class="cell qty${has(O.qty[k])?" edited":""}" type="number" min="0" step="any" data-qty="${k}" placeholder="${q0}" value="${has(O.qty[k])?O.qty[k]:""}" aria-label="Amount of ${esc(m.n)}"></td>
       <td class="x">×</td><td>${priceInput(id,null,"cell")}</td><td class="tot">${full(buyPrice(id)*q)}</td></tr>`};
   const sub=(list)=>list.reduce((t,[id,q0])=>t+buyPrice(id)*qtyOf(r,id,q0),0);
@@ -697,7 +700,7 @@ function render(){
 function rerender(){const f=document.activeElement;let sel=null,pos=null;
   if(f&&f.dataset)for(const k of ["price","qty","oq","sold","batch"])if(f.dataset[k]!=null){sel=`[data-${k}="${f.dataset[k]}"]`;break}
   try{pos=f.selectionStart}catch(e){}
-  render();if(sel){const n=document.querySelector(sel);if(n&&n!==f){n.focus();try{if(pos!=null)n.setSelectionRange(pos,pos)}catch(e){}}}}
+  render();if(sel){const n=document.querySelector(sel);if(n&&n!==f){if(f.isConnected===false&&f.tagName==="INPUT"){f.className=n.className;n.replaceWith(f);f.focus()}else{n.focus();try{if(pos!=null)n.setSelectionRange(pos,pos)}catch(e){}}}}}
 function setView(v){view=v;for(const t of ["crafts","sales","prices"]){$("#tab-"+t).setAttribute("aria-selected",t===v);const s=$("#view-"+t);s.hidden=t!==v;s.style.display=t===v?"flex":""}
   try{history.replaceState(null,"",v==="crafts"?location.pathname:"#"+v)}catch(e){}render()}
 
