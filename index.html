@@ -219,6 +219,9 @@ input.num{font-family:var(--body);font-weight:600}
 .pill{font-weight:700}
 .nmwrap{display:flex;align-items:flex-start;gap:8px;min-width:0}
 .nmwrap>div{min-width:0}
+.short{display:flex;flex-direction:column;gap:2px;margin-top:4px}
+.short span{display:inline-block;width:max-content;max-width:100%;font-size:11.5px;font-weight:600;color:var(--bad);background:var(--bad-soft);border-radius:8px;padding:2px 8px}
+.short b{font-weight:800}
 .star{font:inherit;font-size:19px;line-height:1;border:0;background:none;color:var(--line2);cursor:pointer;padding:1px 2px;border-radius:8px;transition:transform .15s,color .15s}
 .star:hover{color:var(--sun);transform:scale(1.15)}
 .star.on{color:#f5b301}
@@ -366,7 +369,7 @@ const FILT=[["all","All"],["fav","★ Favourites"],["cup","Cups"],["proc","Proce
 
 // ---------- market data ----------
 const item=id=>{const b=D.items[id],l=LIVE&&LIVE.items&&LIVE.items[id];if(!l||b.v||b.ns)return b;
-  return{...b,a:l[0]!=null?l[0]:b.a,b:l[1],s:l[2]!=null?l[2]:b.s,l:l[4],q:l[5],lo:l[6]!=null?l[6]:b.lo,hi:l[7]!=null?l[7]:b.hi}};
+  return{...b,a:l[0]!=null?l[0]:b.a,b:l[1],s:l[2]!=null?l[2]:b.s,l:l[4],q:l[5],lo:l[6]!=null?l[6]:b.lo,hi:l[7]!=null?l[7]:b.hi,pre:l[8]}};
 // ---------- sales history: built-in readings + this browser's readings ----------
 let HIST=store.get("bdoplanner.hist")||{t:[],tt:{}},H=null,RATES=null,PROF=null;
 function mergeHist(){
@@ -452,6 +455,12 @@ function calc(r){
   return{saleP,undercut,unitH,oq,sell,cost,profit,unit,margin:cost>0?profit/cost:0,sec,crafts,made,rate,queue,soldU,earned,sph,firstWait,allSold,lim,stockN,
     floor:out.lo&&listedPrice<=out.lo,cap:out.hi&&listedPrice>=out.hi,capFill,noList:out.l===0&&!has(O.price[r.out])};
 }
+const about=n=>n==null?"":n<10?String(n):"~"+fmt(Number(n.toPrecision(n<100?1:2)));
+function shortages(r){const out=[];for(const[id,q0] of insOf(r)){const it=item(id),q=qtyOf(r,id,q0);
+  if(it.v||it.ns||has(O.price[id])||q<=0||it.s==null)continue;
+  if(it.s<q)out.push({n:it.n,s:it.s,q,pre:it.pre})}return out}
+function shortHtml(r){const sh=shortages(r);if(!sh.length)return"";
+  return`<div class="short">${sh.map(x=>`<span>${x.s===0?"None listed":`Only ${full(x.s)} listed (needs ${full(x.q)})`}: <b>${esc(x.n)}</b>${x.pre!=null?` · ${x.pre?about(x.pre)+" pre-orders waiting":"no pre-orders"}`:""}</span>`).join("")}</div>`}
 const LIM={time:["p-time","Your crafting time"],buyers:["p-buyers","Buyers"],mats:["p-mats","Materials on market"],budget:["p-mats","Your silver"]};
 
 // ---------- status & refresh ----------
@@ -467,13 +476,13 @@ async function refreshLive(){
   if(busy)return;busy=true;const btn=$("#refresh"),msg=$("#refreshMsg");btn.disabled=true;btn.textContent="Refreshing…";msg.hidden=false;
   const prev=LIVE,items={};let done=0,ok=0;const step=()=>msg.textContent=`Fetching prices: ${done} of ${IDS.length}`;step();
   for(let i=0;i<IDS.length;i+=40){const j=await getJSON("item?lang=en&"+IDS.slice(i,i+40).map(x=>"id="+x).join("&"));
-    for(let x of (j||[])){if(Array.isArray(x))x=x[0];if(x&&x.id!=null)items[x.id]=[x.basePrice,null,x.currentStock,x.totalTrades,0,0,x.priceMin,x.priceMax]}}
+    for(let x of (j||[])){if(Array.isArray(x))x=x[0];if(x&&x.id!=null)items[x.id]=[x.basePrice,null,x.currentStock,x.totalTrades,0,0,x.priceMin,x.priceMax,null]}}
   let k=0;
   async function worker(){while(k<IDS.length){const id=IDS[k++];const b=await getJSON(`GetBiddingInfoList?id=${id}&sid=0&lang=en`);
-    const row=items[id]||(items[id]=[null,null,0,null,0,0,null,null]);
+    const row=items[id]||(items[id]=[null,null,0,null,0,0,null,null,null]);
     if(b&&b.orders){const asks=b.orders.filter(o=>o.sellers>0),bids=b.orders.filter(o=>o.buyers>0).map(o=>o.price);
       if(asks.length){row[0]=Math.min(...asks.map(o=>o.price));row[4]=1;row[5]=asks.filter(o=>o.price===row[0]).reduce((s,o)=>s+o.sellers,0)}else{row[4]=0;row[5]=0}
-      row[1]=bids.length?Math.max(...bids):null;row[2]=asks.reduce((s,o)=>s+o.sellers,0);ok++}
+      row[1]=bids.length?Math.max(...bids):null;row[8]=b.orders.reduce((s,o)=>s+(o.buyers||0),0);row[2]=asks.reduce((s,o)=>s+o.sellers,0);ok++}
     else{const p=prev&&prev.items[id]||D.items[id];if(Array.isArray(p)){row[0]=p[0];row[1]=p[1];row[4]=p[4];row[5]=p[5]}else if(p){row[0]=p.a;row[1]=p.b;row[4]=p.l;row[5]=p.q}}
     done++;step()}}
   await Promise.all([worker(),worker(),worker(),worker()]);
@@ -501,7 +510,7 @@ function renderCrafts(){
   const all=rows(),keep=x=>x.c.profit>0||open.has(x.r.id),win=all.filter(keep).sort((a,b)=>key(b)-key(a)),lose=all.filter(x=>!keep(x));
   let h=`<div class="lhead"><span>Craft</span><span>Profit / craft</span><span>Cost</span><span>Sells for</span><span>Margin</span></div>`;
   h+=win.map(({r,c})=>`<div class="row${c.profit<=0?" loss":""}" tabindex="0" data-id="${r.id}" aria-expanded="${open.has(r.id)}">
-      <div class="nmwrap"><button class="star${O.fav&&O.fav[r.id]?" on":""}" data-fav="${r.id}" aria-pressed="${!!(O.fav&&O.fav[r.id])}" aria-label="${O.fav&&O.fav[r.id]?"Remove from":"Add to"} favourites" title="${O.fav&&O.fav[r.id]?"Remove from":"Add to"} favourites">${O.fav&&O.fav[r.id]?"★":"☆"}</button><div><div class="nm">${esc(r.name)}</div><div class="meta">${METH[r.m]}${c.noList?" · nothing listed, base price used":""}</div><div class="mob">Cost ${fmt(c.cost)} · sells for ${fmt(c.oq*c.sell)}</div></div></div>
+      <div class="nmwrap"><button class="star${O.fav&&O.fav[r.id]?" on":""}" data-fav="${r.id}" aria-pressed="${!!(O.fav&&O.fav[r.id])}" aria-label="${O.fav&&O.fav[r.id]?"Remove from":"Add to"} favourites" title="${O.fav&&O.fav[r.id]?"Remove from":"Add to"} favourites">${O.fav&&O.fav[r.id]?"★":"☆"}</button><div><div class="nm">${esc(r.name)}</div><div class="meta">${METH[r.m]}${c.noList?" · nothing listed, base price used":""}</div><div class="mob">Cost ${fmt(c.cost)} · sells for ${fmt(c.oq*c.sell)}</div>${S.mode==="ask"?shortHtml(r):""}</div></div>
       <div class="n big">${fmt(c.profit)}</div><div class="n dim c-cost">${fmt(c.cost)}</div><div class="n dim c-sell">${fmt(c.oq*c.sell)}</div><div class="n dim c-margin">${Math.round(c.margin*100)}%</div>
     </div>${open.has(r.id)?craftDetail(r,c):""}`).join("")||(S.filter==="fav"&&!Object.keys(O.fav||{}).length?`<div class="empty">No favourites yet. Tap the ☆ next to a craft to add it here.</div>`:`<div class="empty">No profitable craft matches.</div>`);
   if(lose.length)h+=`<div class="sect">${lose.length} craft${lose.length>1?"s":""} lose money at current prices and are hidden.</div>`;
