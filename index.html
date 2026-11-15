@@ -6,20 +6,24 @@
 <title>BDO EU Craft Planner</title>
 <meta name="description" content="Black Desert Online EU craft profit calculator with live market prices, listing queues and realistic silver per hour.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=Fredoka:wght@500;600&display=swap">
 <style>
 /* Layout: slim header with live-price status; settings rail beside three tabs (Crafts, Sales & silver per hour, Prices); each row opens into its detail. */
 :root{
-  --bg:#f3f4f2; --panel:#fbfbfa; --ink:#15181a; --ink2:#4c5357; --muted:#7f878b; --line:#dcdfdc; --line2:#c6cbc8;
-  --accent:#9a6b12; --accent-soft:#f3e7cc; --bar:#2c6e8f; --bar-soft:#d7e6ee;
-  --good:#1f7a3a; --good-soft:#dcefe1; --warn:#9a5b00; --warn-soft:#f6e6c8; --bad:#b03a32; --bad-soft:#f5dcd9; --info:#3a5f8f; --info-soft:#dde6f2;
-  --display:"Space Grotesk",system-ui,sans-serif; --body:Inter,system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --bg:#f6f2ff; --panel:#ffffff; --panel2:#fbf9ff; --ink:#2b2142; --ink2:#5b5277; --muted:#8a82a3; --line:#ebe5f7; --line2:#d9d0ef;
+  --accent:#e8590c; --accent-soft:#fff0e3; --sun:#ffc94d; --bar:#14b8a6; --bar-soft:#d5f5f0;
+  --grape:#7c5cff; --grape-soft:#eee8ff; --mint:#12a594; --mint-soft:#dcf7f2; --peach-soft:#ffe9dc;
+  --good:#16a34a; --good-soft:#dcfce7; --warn:#c2410c; --warn-soft:#ffedd5; --bad:#e11d48; --bad-soft:#ffe4e6; --info:#6d4dff; --info-soft:#ede9fe;
+  --shadow:0 1px 2px rgba(60,40,120,.06),0 6px 18px rgba(60,40,120,.07);
+  --display:"Fredoka","Nunito",system-ui,sans-serif; --body:"Nunito",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"Nunito",system-ui,sans-serif;
   color-scheme:light;
 }
 @media (prefers-color-scheme: dark){:root{
-  --bg:#111416; --panel:#191d20; --ink:#eceeec; --ink2:#b4bbbe; --muted:#848c90; --line:#2a3034; --line2:#384046;
-  --accent:#d9a748; --accent-soft:#3a2e15; --bar:#5aa3c7; --bar-soft:#1d3440;
-  --good:#5cc27a; --good-soft:#173322; --warn:#e3a54a; --warn-soft:#3a2a12; --bad:#ec7d73; --bad-soft:#3d1d1a; --info:#86a9d8; --info-soft:#1b2a3d; color-scheme:dark}}
+  --bg:#1b1530; --panel:#251d3d; --panel2:#2c2348; --ink:#f5f0ff; --ink2:#c9bfe6; --muted:#9a90b8; --line:#352b54; --line2:#46396b;
+  --accent:#ffa45c; --accent-soft:#4a2e24; --sun:#ffd166; --bar:#3fd6c4; --bar-soft:#1f3d45;
+  --grape:#a48bff; --grape-soft:#33295a; --mint:#3fd6c4; --mint-soft:#1d3a3f; --peach-soft:#41293a;
+  --good:#4ade80; --good-soft:#173a2a; --warn:#fdba74; --warn-soft:#45301f; --bad:#fb7185; --bad-soft:#47202e; --info:#b9a6ff; --info-soft:#30265a;
+  --shadow:0 1px 2px rgba(0,0,0,.25),0 8px 22px rgba(0,0,0,.25); color-scheme:dark}}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html{-webkit-text-size-adjust:100%}
@@ -181,6 +185,64 @@ td input{width:110px}td input.qty{width:68px}
 @media (max-width:560px){.row3{grid-template-columns:1fr 1fr}}
 footer{font-size:12.5px;color:var(--ink2);display:flex;flex-direction:column;gap:6px;max-width:90ch}
 footer a{color:var(--ink2)}
+/* ---- cosy theme ---- */
+body{font-variant-numeric:tabular-nums;background:radial-gradient(1200px 500px at 10% -10%,var(--peach-soft),transparent 60%),radial-gradient(900px 500px at 100% 0%,var(--mint-soft),transparent 55%),var(--bg);background-attachment:fixed}
+header{background:linear-gradient(120deg,var(--grape-soft),var(--peach-soft) 55%,var(--mint-soft));border-radius:20px;padding:18px 20px;box-shadow:var(--shadow);border:1px solid var(--line)}
+h1{font-weight:600;letter-spacing:.2px;color:var(--ink)}
+h1::before{content:"";display:inline-block;width:.95em;height:.95em;margin-right:.35em;vertical-align:-.12em;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff 0 18%,#e9e4f5 30%,#b9b0d6 70%,#8f86b3);box-shadow:inset 0 0 0 2px rgba(255,255,255,.6),0 2px 6px rgba(60,40,120,.25)}
+.eyebrow{color:var(--grape);font-weight:700}
+h2{font-family:var(--display);font-weight:600;font-size:16px}
+.card,.list{border-radius:18px;border-color:var(--line);box-shadow:var(--shadow)}
+.card{padding:16px}
+input[type=number],input[type=search],select{border-radius:12px;background:var(--panel2);border-color:var(--line2)}
+input.num{font-family:var(--body);font-weight:600}
+.seg{border-radius:999px;background:var(--panel2);padding:3px;gap:3px;border-color:var(--line)}
+.seg button{border-radius:999px;font-weight:600}
+.seg button[aria-pressed=true]{background:var(--grape);color:#fff}
+.btn{border-radius:999px;font-weight:700;padding:7px 14px;background:var(--panel)}
+.btn.primary{background:linear-gradient(135deg,var(--sun),#ff9a5a);border-color:transparent;color:#3a2200;box-shadow:0 4px 12px rgba(255,140,60,.3)}
+.btn.primary:hover{filter:brightness(1.05)}
+.tabs{border-bottom:0;gap:6px;background:var(--panel);padding:5px;border-radius:999px;box-shadow:var(--shadow);border:1px solid var(--line);width:max-content;max-width:100%}
+.tabs button{border-radius:999px;border-bottom:0;margin:0;font-weight:700;padding:8px 16px}
+.tabs button[aria-selected=true]{background:var(--grape);color:#fff}
+.chip{font-weight:700;border-color:var(--line2);background:var(--panel)}
+.chip[aria-pressed=true]{background:var(--grape-soft);border-color:var(--grape);color:var(--grape)}
+.lhead{background:var(--panel2);font-weight:700;letter-spacing:.06em}
+.row{transition:background .15s}
+.row:hover{background:var(--panel2)}
+.row .nm{font-weight:700}
+.n{font-family:var(--body)}
+.n.big{font-family:var(--display);font-size:17px;font-weight:600;color:var(--good)}
+.row.loss .n.big{color:var(--muted)}
+.track,.track i{border-radius:999px}.track{height:7px}
+.track i{background:linear-gradient(90deg,var(--bar),var(--grape))}
+.pill{font-weight:700}
+.nmwrap{display:flex;align-items:flex-start;gap:8px;min-width:0}
+.nmwrap>div{min-width:0}
+.star{font:inherit;font-size:19px;line-height:1;border:0;background:none;color:var(--line2);cursor:pointer;padding:1px 2px;border-radius:8px;transition:transform .15s,color .15s}
+.star:hover{color:var(--sun);transform:scale(1.15)}
+.star.on{color:#f5b301}
+.detail{background:var(--panel2)}
+.dcard{border-radius:18px;border-color:var(--line);box-shadow:var(--shadow)}
+.fbox{border-radius:14px;padding:12px 14px}
+.fbox:nth-child(1){background:var(--grape-soft)}
+.fbox:nth-child(3){background:var(--mint-soft)}
+.fbox.good{background:linear-gradient(135deg,#fff3c4,#ffe0cc)}
+.fbox.good .v{color:#b45309}
+@media (prefers-color-scheme: dark){.tabs button[aria-selected=true],.seg button[aria-pressed=true]{color:#1b1530}.fbox.good{background:linear-gradient(135deg,#4a3a17,#4a2a24)}.fbox.good .v{color:var(--sun)}.btn.primary{color:#2a1700}h1::before{background:radial-gradient(circle at 35% 30%,#fff 0 15%,#d8d1ee 30%,#9c92c4 70%,#6c638f)}}
+.fbox .v{font-weight:600}
+.fbox .s{font-family:var(--body)}
+.farrow{color:var(--grape)}
+.dsec h3,.best h3{color:var(--grape);font-weight:800}
+table.mats tr.grp td{color:var(--grape)}
+input.cell{font-family:var(--body);font-weight:600;border-radius:8px}
+input.cell:focus{border-color:var(--grape)}
+.edited{background:var(--grape-soft)!important;border-color:var(--grape)!important}
+.tchart i{background:linear-gradient(180deg,var(--grape),var(--bar));border-radius:4px 4px 1px 1px}
+.tag{border-radius:999px;font-weight:700;padding:0 8px}
+.status{font-weight:600}
+footer{color:var(--muted)}
+.sect{background:var(--panel2)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -260,6 +322,7 @@ footer a{color:var(--ink2)}
           <div class="field" style="max-width:520px"><span class="lbl">When others already list at the cheapest price</span>
             <div class="seg" role="group" aria-label="When others already list at the cheapest price">
               <button id="uc-on" aria-pressed="true">List one step cheaper</button><button id="uc-off" aria-pressed="false">Wait in line</button></div></div>
+          <label class="check"><input type="checkbox" id="sfav"> Only my favourites</label>
           <p class="hint">Profit per hour counts only what actually sells within your waiting time, divided by the hours you craft. Listings at the same price sell in the order they were listed. By default you list one price step below the cheapest listing so yours sells first; at the market's minimum price you can't, so you wait for the listings ahead of you. Sales per hour are averages over the last <b id="soldWin"></b> (up to 7 days, from readings saved in this browser).</p>
         </div>
         <div class="list" id="slist"></div>
@@ -294,12 +357,12 @@ const full=n=>n==null||!isFinite(n)?"–":Math.round(n).toLocaleString("en-US");
 const dur=h=>!isFinite(h)?"never":h<1/60?"now":h<1?Math.round(h*60)+" min":h<48?(+h.toFixed(1))+" h":Math.round(h/24)+" days";
 const has=v=>v!=null&&v!=="";
 const DEF={vp:true,fame:0,ring:false,mode:"ask",mastery:400,mpsec:75,simple:7.5,cup:10,cook:1,alch:1.5,hours:1,wait:12,undercut:true,budget:10000000000,filter:"all",sort:"profit",ssort:"sph"};
-let S={...DEF},O={price:{},qty:{},oq:{},sold:{},via:{}},LIVE=null,liveState="loading",view="crafts",open=new Set(),sopen=new Set(),popen=new Set(),psort={k:"n",d:1};
+let S={...DEF},O={price:{},qty:{},oq:{},sold:{},via:{},fav:{}},LIVE=null,liveState="loading",view="crafts",open=new Set(),sopen=new Set(),popen=new Set(),psort={k:"n",d:1};
 const store={get(k){try{return JSON.parse(localStorage.getItem(k)||"null")}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 {const j=store.get("bdoplanner");if(j){S={...DEF,...j.S};O={...O,...j.O}}}
 const save=()=>store.set("bdoplanner",{S,O});
 const METH={proc:"Processing",simple:"Simple alchemy",cook:"Cooking",alch:"Alchemy",work:"Workshop",cup:"Cup"};
-const FILT=[["all","All"],["cup","Cups"],["proc","Processing"],["simple","Simple alchemy"],["cook","Cooking"],["alch","Alchemy"]].filter(([k])=>k==="all"||D.recipes.some(r=>r.m===k));
+const FILT=[["all","All"],["fav","★ Favourites"],["cup","Cups"],["proc","Processing"],["simple","Simple alchemy"],["cook","Cooking"],["alch","Alchemy"]].filter(([k])=>k==="all"||k==="fav"||D.recipes.some(r=>r.m===k));
 
 // ---------- market data ----------
 const item=id=>{const b=D.items[id],l=LIVE&&LIVE.items&&LIVE.items[id];if(!l||b.v||b.ns)return b;
@@ -425,22 +488,22 @@ function syncControls(){
   $("#vp").checked=S.vp;$("#fame").value=String(S.fame);$("#ring").checked=S.ring;
   $("#mode-ask").setAttribute("aria-pressed",S.mode==="ask");$("#mode-bid").setAttribute("aria-pressed",S.mode==="bid");
   for(const[k,id] of [["mastery","mastery"],["mpsec","mpsec"],["simple","s-simple"],["cup","s-cup"],["cook","s-cook"],["alch","s-alch"],["hours","hours"],["wait","wait"],["budget","budget"]])$("#"+id).value=S[k];
-  $("#sort").value=S.sort;$("#uc-on").setAttribute("aria-pressed",!!S.undercut);$("#uc-off").setAttribute("aria-pressed",!S.undercut);
+  $("#sort").value=S.sort;$("#sfav").checked=!!S.sfav;$("#uc-on").setAttribute("aria-pressed",!!S.undercut);$("#uc-off").setAttribute("aria-pressed",!S.undercut);
   $("#chips").innerHTML=FILT.map(([k,l])=>`<button class="chip" data-f="${k}" aria-pressed="${S.filter===k}">${l}</button>`).join("");
 }
 function priceInput(id,label,cls){const it=item(id),ov=O.price[id];const ph=it.v?fmt(it.a):it.ns?"not sold":fmt(mktBuy(id));
   return`<input class="${cls||"num"}${has(ov)?" edited":""}" type="number" min="0" data-price="${id}" placeholder="${ph}" value="${has(ov)?ov:""}" aria-label="${esc(label||"Price of "+it.n)}">`}
 function rows(all){const q=all?"":$("#q").value.trim().toLowerCase();
-  return D.recipes.map(r=>({r,c:calc(r)})).filter(x=>(S.filter==="all"||x.r.m===S.filter)&&(!q||x.r.name.toLowerCase().includes(q)||x.r.ins.some(([id])=>D.items[id].n.toLowerCase().includes(q))))}
+  return D.recipes.map(r=>({r,c:calc(r)})).filter(x=>(S.filter==="all"||(S.filter==="fav"?O.fav&&O.fav[x.r.id]:x.r.m===S.filter))&&(!q||x.r.name.toLowerCase().includes(q)||x.r.ins.some(([id])=>D.items[id].n.toLowerCase().includes(q))))}
 
 function renderCrafts(){
   const key={profit:x=>x.c.profit,sph:x=>x.c.sph,margin:x=>x.c.margin,cost:x=>x.c.cost,sell:x=>x.c.oq*x.c.sell}[S.sort]||(x=>x.c.profit);
   const all=rows(),keep=x=>x.c.profit>0||open.has(x.r.id),win=all.filter(keep).sort((a,b)=>key(b)-key(a)),lose=all.filter(x=>!keep(x));
   let h=`<div class="lhead"><span>Craft</span><span>Profit / craft</span><span>Cost</span><span>Sells for</span><span>Margin</span></div>`;
   h+=win.map(({r,c})=>`<div class="row${c.profit<=0?" loss":""}" tabindex="0" data-id="${r.id}" aria-expanded="${open.has(r.id)}">
-      <div><div class="nm">${esc(r.name)}</div><div class="meta">${METH[r.m]}${c.noList?" · nothing listed, base price used":""}</div><div class="mob">Cost ${fmt(c.cost)} · sells for ${fmt(c.oq*c.sell)}</div></div>
+      <div class="nmwrap"><button class="star${O.fav&&O.fav[r.id]?" on":""}" data-fav="${r.id}" aria-pressed="${!!(O.fav&&O.fav[r.id])}" aria-label="${O.fav&&O.fav[r.id]?"Remove from":"Add to"} favourites" title="${O.fav&&O.fav[r.id]?"Remove from":"Add to"} favourites">${O.fav&&O.fav[r.id]?"★":"☆"}</button><div><div class="nm">${esc(r.name)}</div><div class="meta">${METH[r.m]}${c.noList?" · nothing listed, base price used":""}</div><div class="mob">Cost ${fmt(c.cost)} · sells for ${fmt(c.oq*c.sell)}</div></div></div>
       <div class="n big">${fmt(c.profit)}</div><div class="n dim c-cost">${fmt(c.cost)}</div><div class="n dim c-sell">${fmt(c.oq*c.sell)}</div><div class="n dim c-margin">${Math.round(c.margin*100)}%</div>
-    </div>${open.has(r.id)?craftDetail(r,c):""}`).join("")||`<div class="empty">No profitable craft matches.</div>`;
+    </div>${open.has(r.id)?craftDetail(r,c):""}`).join("")||(S.filter==="fav"&&!Object.keys(O.fav||{}).length?`<div class="empty">No favourites yet. Tap the ☆ next to a craft to add it here.</div>`:`<div class="empty">No profitable craft matches.</div>`);
   if(lose.length)h+=`<div class="sect">${lose.length} craft${lose.length>1?"s":""} lose money at current prices and are hidden.</div>`;
   $("#list").innerHTML=h;
 }
@@ -492,12 +555,12 @@ function craftDetail(r,c){const out=item(r.out),afterTax=c.oq*c.sell*kept();
   </div></div>`}
 
 function renderSales(){
-  const all=rows(true).filter(x=>x.c.profit>0).sort((a,b)=>b.c.sph-a.c.sph||b.c.profit-a.c.profit),max=Math.max(1,...all.map(x=>x.c.sph));
+  const all=rows(true).filter(x=>x.c.profit>0&&(!S.sfav||(O.fav&&O.fav[x.r.id]))).sort((a,b)=>b.c.sph-a.c.sph||b.c.profit-a.c.profit),max=Math.max(1,...all.map(x=>x.c.sph));
   $("#soldWin").textContent=dur(soldWindowH());$("#budgetTxt").textContent=fmt(S.budget)+" silver";
   let h=`<div class="lhead"><span>Craft</span><span>Profit / hour</span><span>Sold / hour</span><span>Listed ahead</span><span>First sale</span><span>Limited by</span></div>`;
   h+=all.map(({r,c})=>{const L=LIM[c.lim];return`<div class="row" tabindex="0" data-sid="${r.id}" aria-expanded="${sopen.has(r.id)}">
-      <div><div class="nm">${esc(r.name)}${c.floor&&c.queue>0?`<span class="tag">at price floor</span>`:""}${c.capFill?`<span class="tag ok">buy orders waiting</span>`:""}</div><div class="meta">${fmt(c.profit)} per craft</div>
-        <div class="mob">Market sells ${fmt(c.rate)}/h · ${full(c.queue)} listed ahead · first sale in ${dur(c.firstWait)}</div></div>
+      <div class="nmwrap"><button class="star${O.fav&&O.fav[r.id]?" on":""}" data-fav="${r.id}" aria-pressed="${!!(O.fav&&O.fav[r.id])}" aria-label="${O.fav&&O.fav[r.id]?"Remove from":"Add to"} favourites" title="${O.fav&&O.fav[r.id]?"Remove from":"Add to"} favourites">${O.fav&&O.fav[r.id]?"★":"☆"}</button><div><div class="nm">${esc(r.name)}${c.floor&&c.queue>0?`<span class="tag">at price floor</span>`:""}${c.capFill?`<span class="tag ok">buy orders waiting</span>`:""}</div><div class="meta">${fmt(c.profit)} per craft</div>
+        <div class="mob">Market sells ${fmt(c.rate)}/h · ${full(c.queue)} listed ahead · first sale in ${dur(c.firstWait)}</div></div></div>
       <div class="sph"><span class="n big">${fmt(c.sph)}/h</span><div class="track"><i style="width:${Math.max(c.sph>0?1:0,c.sph/max*100)}%"></i></div></div>
       <div class="n dim s-mkt">${fmt(c.rate)}/h</div><div class="n dim s-queue">${full(c.queue)}</div><div class="n dim s-wait">${dur(c.firstWait)}</div>
       <span class="pill ${L[0]}">${L[1]}</span></div>${sopen.has(r.id)?salesDetail(r,c):""}`}).join("")||`<div class="empty">No profitable craft matches.</div>`;
@@ -554,7 +617,7 @@ const num=(v,d)=>{const n=parseFloat(v);return isFinite(n)&&n>0?n:d};
 document.addEventListener("input",e=>{const t=e.target,ds=t.dataset||{};
   for(const[k,o] of [["price",O.price],["qty",O.qty],["oq",O.oq],["sold",O.sold]])if(ds[k]!=null){if(t.value==="")delete o[ds[k]];else o[ds[k]]=t.value;save();rerender();return}
   if(t.id==="q"||t.id==="pq"||t.id==="onlyEdited"){render();return}
-  const map={vp:"vp",ring:"ring",mastery:"mastery",mpsec:"mpsec","s-simple":"simple","s-cup":"cup","s-cook":"cook","s-alch":"alch",hours:"hours",wait:"wait",budget:"budget"}[t.id];
+  const map={vp:"vp",ring:"ring",mastery:"mastery",mpsec:"mpsec","s-simple":"simple","s-cup":"cup","s-cook":"cook","s-alch":"alch",hours:"hours",wait:"wait",budget:"budget",sfav:"sfav"}[t.id];
   if(!map)return;S[map]=t.type==="checkbox"?t.checked:map==="mastery"||map==="budget"?Math.max(0,parseFloat(t.value)||0):num(t.value,DEF[map]);save();rerender()});
 document.addEventListener("change",e=>{const t=e.target;if(t.id==="sort"){S.sort=t.value;save();render()}else if(t.id==="fame"){S.fame=+t.value;save();render()}});
 document.addEventListener("click",e=>{const t=e.target;
@@ -562,8 +625,9 @@ document.addEventListener("click",e=>{const t=e.target;
   if(t.id==="refresh"){refreshLive();return}
   if(t.id==="uc-on"||t.id==="uc-off"){S.undercut=t.id==="uc-on";save();syncControls();render();return}
   if(t.id==="mode-ask"||t.id==="mode-bid"){S.mode=t.id==="mode-bid"?"bid":"ask";save();syncControls();render();return}
-  if(t.id==="reset"){S={...DEF};O={price:{},qty:{},oq:{},sold:{},via:{}};save();syncControls();render();return}
+  if(t.id==="reset"){S={...DEF};O={...O,price:{},qty:{},oq:{},sold:{},via:{}};save();syncControls();render();return}
   if(t.id==="clearPrices"){O.price={};save();render();return}
+  const fv=t.closest("[data-fav]");if(fv){const id=fv.dataset.fav;O.fav=O.fav||{};if(O.fav[id])delete O.fav[id];else O.fav[id]=1;save();render();return}
   const vb=t.closest("[data-via]");if(vb){O.via[vb.dataset.via]=vb.dataset.mode;save();render();return}
   const chip=t.closest(".chip[data-f]");if(chip){S.filter=chip.dataset.f;save();syncControls();render();return}
   const gs=t.closest("[data-goto-sales]");if(gs){sopen.add(gs.dataset.gotoSales);setView("sales");const n=document.querySelector(`[data-sid="${gs.dataset.gotoSales}"]`);if(n)n.scrollIntoView({block:"start"});return}
