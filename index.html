@@ -354,6 +354,7 @@ footer{color:var(--muted)}
             <div class="field"><label for="pdays">Days to sell</label><input class="num" type="number" id="pdays" min="0.25" step="0.25"></div>
             <div class="field"><label for="phours">Hours you can craft</label><input class="num" type="number" id="phours" min="0.25" step="0.25"></div>
           </div>
+          <div class="field" style="max-width:300px"><label for="pmin">Skip crafts that make less than (profit per line)</label><input class="num" type="number" id="pmin" min="0" step="10000000"><span class="hint" id="pminTxt"></span></div>
           <p class="hint">The plan looks for the mix of crafts that makes the most total profit within your silver and crafting time. Each craft is capped at the share of its market you expect to win in the selling time, at the materials currently listed, and at your crafting time. Routes that make the same item share one market. Material costs follow the real listings, so prices rise as the plan buys more, and it stops adding crafts once the next batch would no longer pay. Listings for the plan's materials load in a few seconds.</p>
         </div>
         <div id="planSum" class="flow"></div>
@@ -389,7 +390,7 @@ const fmt=n=>{if(n==null||!isFinite(n))return"–";const a=Math.abs(n),sg=n<0?"�
 const full=n=>n==null||!isFinite(n)?"–":Math.round(n).toLocaleString("en-US");
 const dur=h=>!isFinite(h)?"never":h<1/60?"now":h<1?Math.round(h*60)+" min":h<48?(+h.toFixed(1))+" h":Math.round(h/24)+" days";
 const has=v=>v!=null&&v!=="";
-const DEF={vp:true,fame:0,ring:false,mode:"ask",mastery:400,mpsec:75,simple:7.5,cup:10,cook:1,alch:1.5,hours:1,wait:12,undercut:true,pbudget:50000000000,pshare:30,pdays:1,phours:4,budget:10000000000,filter:"all",sort:"profit",ssort:"sph"};
+const DEF={vp:true,fame:0,ring:false,mode:"ask",mastery:400,mpsec:75,simple:7.5,cup:10,cook:1,alch:1.5,hours:1,wait:12,undercut:true,pbudget:50000000000,pshare:30,pdays:1,phours:4,pmin:100000000,budget:10000000000,filter:"all",sort:"profit",ssort:"sph"};
 let S={...DEF},O={price:{},qty:{},oq:{},sold:{},via:{},fav:{},n:{}},LIVE=null,liveState="loading",view="crafts",open=new Set(),sopen=new Set(),popen=new Set(),psort={k:"n",d:1};
 const store={get(k){try{return JSON.parse(localStorage.getItem(k)||"null")}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 {const j=store.get("bdoplanner");if(j){S={...DEF,...j.S};O={...O,...j.O}}}
@@ -553,7 +554,7 @@ async function refreshLive(manual){
 function syncControls(){
   $("#vp").checked=S.vp;$("#fame").value=String(S.fame);$("#ring").checked=S.ring;
   $("#mode-ask").setAttribute("aria-pressed",S.mode==="ask");$("#mode-bid").setAttribute("aria-pressed",S.mode==="bid");
-  for(const[k,id] of [["mastery","mastery"],["mpsec","mpsec"],["simple","s-simple"],["cup","s-cup"],["cook","s-cook"],["alch","s-alch"],["hours","hours"],["wait","wait"],["budget","budget"],["pbudget","pbudget"],["pshare","pshare"],["pdays","pdays"],["phours","phours"]])$("#"+id).value=S[k];
+  for(const[k,id] of [["mastery","mastery"],["mpsec","mpsec"],["simple","s-simple"],["cup","s-cup"],["cook","s-cook"],["alch","s-alch"],["hours","hours"],["wait","wait"],["budget","budget"],["pbudget","pbudget"],["pshare","pshare"],["pdays","pdays"],["phours","phours"],["pmin","pmin"]])$("#"+id).value=S[k];
   $("#sort").value=S.sort;$("#sfav").checked=!!S.sfav;$("#uc-on").setAttribute("aria-pressed",!!S.undercut);$("#uc-off").setAttribute("aria-pressed",!S.undercut);
   $("#chips").innerHTML=FILT.map(([k,l])=>`<button class="chip" data-f="${k}" aria-pressed="${S.filter===k}">${l}</button>`).join("");
 }
@@ -726,18 +727,22 @@ function buildPlan(){
       for(const[id,q] of ins)used[id]=(used[id]||0)+q*n;got[x.r.out]=(got[x.r.out]||0)+n*x.c.oq;time-=n*x.sec;
       plan.push({...x,ratio:(n*rev-spend)/spend,n,spend,profit:n*rev-spend,why})}
     return{plan,left:money,timeUsed:S.phours*3600-time,profit:plan.reduce((t,x)=>t+x.profit,0)}}
-  let best=fill(0);for(let e=0;e<=10;e+=0.5){const r=fill(Math.pow(10,e));if(r.profit>best.profit)best=r}
-  best.plan.sort((a,b)=>b.profit-a.profit);return best}
+  const search=()=>{let best=fill(0);for(let e=0;e<=10;e+=0.5){const r=fill(Math.pow(10,e));if(r.profit>best.profit)best=r}return best};
+  // drop lines under the minimum profit and give their silver and time to the rest
+  let best=search(),dropped=[];
+  for(let k=0;k<20;k++){const small=best.plan.filter(x=>x.profit<S.pmin);if(!small.length)break;
+    for(const x of small){const i=cand.indexOf(cand.find(c=>c.r.id===x.r.id));if(i>=0){dropped.push(x.r.name);cand.splice(i,1)}}best=search()}
+  best.plan.sort((a,b)=>b.profit-a.profit);best.dropped=dropped;return best}
 function renderPlan(){
-  $("#pbudgetTxt").textContent=fmt(S.pbudget)+" silver";
-  const{plan,left,timeUsed}=buildPlan(),approxSpend=plan.reduce((t,x)=>t+x.spend,0);
+  $("#pbudgetTxt").textContent=fmt(S.pbudget)+" silver";$("#pminTxt").textContent=S.pmin>0?fmt(S.pmin)+" minimum":"no minimum";
+  const{plan,left,timeUsed,dropped}=buildPlan(),approxSpend=plan.reduce((t,x)=>t+x.spend,0);
   const shop={};for(const x of plan)for(const[id,q0] of insOf(x.r)){const q=qtyOf(x.r,id,q0)*x.n;if(!shop[id])shop[id]={q:0};shop[id].q+=q}
   const ids=Object.keys(shop),need=ids.filter(i=>!D.items[i].v&&!D.items[i].ns);
   if(need.some(i=>!BOOK[i]||Date.now()-BOOK[i].at>=10*60e3))setTimeout(()=>loadBooks(need),30);
   let exact=true;for(const id of ids){const bc=buyCost(id,shop[id].q);shop[id].bc=bc;if(bc.loading)exact=false}
   const spend=ids.reduce((t,id)=>t+shop[id].bc.cost,0),revenue=plan.reduce((t,x)=>t+x.n*x.c.oq*x.c.saleP*kept(),0),profit=revenue-spend;
   $("#planSum").innerHTML=`<div class="fbox"><span class="k">You spend</span><span class="v">${fmt(spend)}</span><span class="s">${exact?"exact, from current listings":"estimate · loading exact prices…"}${spend>S.pbudget?` · ${fmt(spend-S.pbudget)} over budget as prices climb`:` · ${fmt(S.pbudget-spend)} left over`}</span></div>
-    <div class="fbox"><span class="k">Crafting time</span><span class="v">${dur(timeUsed/3600)}</span><span class="s">${plan.length} different crafts</span></div>
+    <div class="fbox"><span class="k">Crafting time</span><span class="v">${dur(timeUsed/3600)}</span><span class="s">${plan.length} different crafts${dropped&&dropped.length?` · ${dropped.length} small ones skipped`:""}</span></div>
     <div class="fbox good"><span class="k">Expected profit</span><span class="v">${fmt(profit)}</span><span class="s">${spend>0?Math.round(profit/spend*100)+"% on what you spend":""} · after tax${exact&&Math.abs(approxSpend-spend)>approxSpend*0.01?` · ${fmt(spend-approxSpend)} more than at cheapest prices`:""}</span></div>`;
   const W={market:"market",materials:"materials listed",budget:"your silver",time:"your time",prices:"rising material prices"};
   $("#planList").innerHTML=plan.length?`<table class="plan"><tr><th>Craft</th><th>Crafts</th><th>Spend</th><th>Profit</th><th>Return</th><th>Capped by</th><th></th></tr>`+
@@ -784,8 +789,8 @@ const num=(v,d)=>{const n=parseFloat(v);return isFinite(n)&&n>0?n:d};
 document.addEventListener("input",e=>{const t=e.target,ds=t.dataset||{};
   O.n=O.n||{};for(const[k,o] of [["price",O.price],["qty",O.qty],["oq",O.oq],["sold",O.sold],["batch",O.n]])if(ds[k]!=null){if(t.value==="")delete o[ds[k]];else o[ds[k]]=t.value;save();rerender();return}
   if(t.id==="q"||t.id==="pq"||t.id==="onlyEdited"){render();return}
-  const map={vp:"vp",ring:"ring",mastery:"mastery",mpsec:"mpsec","s-simple":"simple","s-cup":"cup","s-cook":"cook","s-alch":"alch",hours:"hours",wait:"wait",budget:"budget",sfav:"sfav",pbudget:"pbudget",pshare:"pshare",pdays:"pdays",phours:"phours"}[t.id];
-  if(!map)return;S[map]=t.type==="checkbox"?t.checked:map==="mastery"||map==="budget"||map==="pbudget"?Math.max(0,parseFloat(t.value)||0):num(t.value,DEF[map]);save();rerender()});
+  const map={vp:"vp",ring:"ring",mastery:"mastery",mpsec:"mpsec","s-simple":"simple","s-cup":"cup","s-cook":"cook","s-alch":"alch",hours:"hours",wait:"wait",budget:"budget",sfav:"sfav",pbudget:"pbudget",pshare:"pshare",pdays:"pdays",phours:"phours",pmin:"pmin"}[t.id];
+  if(!map)return;S[map]=t.type==="checkbox"?t.checked:map==="mastery"||map==="budget"||map==="pbudget"||map==="pmin"?Math.max(0,parseFloat(t.value)||0):num(t.value,DEF[map]);save();rerender()});
 document.addEventListener("change",e=>{const t=e.target;if(t.id==="sort"){S.sort=t.value;save();render()}else if(t.id==="fame"){S.fame=+t.value;save();render()}});
 document.addEventListener("click",e=>{const t=e.target;
   const tab=t.closest("[role=tab]");if(tab){setView(tab.id.slice(4));return}
