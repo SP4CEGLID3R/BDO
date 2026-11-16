@@ -139,6 +139,10 @@ input.cell::placeholder{color:var(--ink2);opacity:1}
 dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0;font-size:13px;align-items:center}
 dt{color:var(--muted)}dd{margin:0;text-align:right;font-family:var(--mono);overflow-wrap:anywhere}
 dd:first-of-type{font-family:var(--body);font-weight:500}
+.row4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;align-items:end}
+@media (max-width:700px){.row4{grid-template-columns:1fr 1fr}}
+table.plan td:first-child{min-width:220px}table.plan .msub{display:block;font-size:11.5px;color:var(--muted);font-family:var(--body)}table.plan .mname{font-weight:700}table.plan td.tot{color:var(--good);font-weight:700}
+#planList{padding:4px 8px}
 .batch{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:14px;background:var(--panel2);border:1px dashed var(--line2)}
 .bhead{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
 .bhead h3{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--grape);font-weight:800;margin:0}
@@ -313,6 +317,7 @@ footer{color:var(--muted)}
       <div class="tabs" role="tablist">
         <button role="tab" id="tab-crafts" aria-selected="true">Profit per craft</button>
         <button role="tab" id="tab-sales" aria-selected="false">Sales &amp; profit per hour</button>
+        <button role="tab" id="tab-plan" aria-selected="false">Daily plan</button>
         <button role="tab" id="tab-prices" aria-selected="false">Prices</button>
       </div>
 
@@ -339,6 +344,21 @@ footer{color:var(--muted)}
           <p class="hint">Profit per hour counts only what actually sells within your waiting time, divided by the hours you craft. Listings at the same price sell in the order they were listed. By default you list one price step below the cheapest listing so yours sells first; at the market's minimum price you can't, so you wait for the listings ahead of you. Sales per hour are averages over the last <b id="soldWin"></b> (up to 7 days, from readings saved in this browser).</p>
         </div>
         <div class="list" id="slist"></div>
+      </section>
+
+      <section id="view-plan" hidden style="flex-direction:column;gap:12px">
+        <div class="card intro">
+          <div class="row4">
+            <div class="field"><label for="pbudget">Silver to spend per day</label><input class="num" type="number" id="pbudget" min="0" step="1000000000"><span class="hint" id="pbudgetTxt"></span></div>
+            <div class="field"><label for="pshare">Your share of buyers (%)</label><input class="num" type="number" id="pshare" min="1" max="100" step="5"></div>
+            <div class="field"><label for="pdays">Days to sell</label><input class="num" type="number" id="pdays" min="0.25" step="0.25"></div>
+            <div class="field"><label for="phours">Hours you can craft</label><input class="num" type="number" id="phours" min="0.25" step="0.25"></div>
+          </div>
+          <p class="hint">The plan looks for the mix of crafts that makes the most total profit within your silver and crafting time. Each craft is capped at the share of its market you expect to win in the selling time, at the materials currently listed, and at your crafting time. Routes that make the same item share one market. Material costs follow the real listings, so prices rise as the plan buys more, and it stops adding crafts once the next batch would no longer pay. Listings for the plan's materials load in a few seconds.</p>
+        </div>
+        <div id="planSum" class="flow"></div>
+        <div class="list scroll" id="planList"></div>
+        <div class="card"><h2>Shopping list for the whole plan</h2><div class="scroll" id="planShop"></div></div>
       </section>
 
       <section id="view-prices" hidden style="flex-direction:column;gap:12px">
@@ -369,7 +389,7 @@ const fmt=n=>{if(n==null||!isFinite(n))return"–";const a=Math.abs(n),sg=n<0?"�
 const full=n=>n==null||!isFinite(n)?"–":Math.round(n).toLocaleString("en-US");
 const dur=h=>!isFinite(h)?"never":h<1/60?"now":h<1?Math.round(h*60)+" min":h<48?(+h.toFixed(1))+" h":Math.round(h/24)+" days";
 const has=v=>v!=null&&v!=="";
-const DEF={vp:true,fame:0,ring:false,mode:"ask",mastery:400,mpsec:75,simple:7.5,cup:10,cook:1,alch:1.5,hours:1,wait:12,undercut:true,budget:10000000000,filter:"all",sort:"profit",ssort:"sph"};
+const DEF={vp:true,fame:0,ring:false,mode:"ask",mastery:400,mpsec:75,simple:7.5,cup:10,cook:1,alch:1.5,hours:1,wait:12,undercut:true,pbudget:50000000000,pshare:30,pdays:1,phours:4,budget:10000000000,filter:"all",sort:"profit",ssort:"sph"};
 let S={...DEF},O={price:{},qty:{},oq:{},sold:{},via:{},fav:{},n:{}},LIVE=null,liveState="loading",view="crafts",open=new Set(),sopen=new Set(),popen=new Set(),psort={k:"n",d:1};
 const store={get(k){try{return JSON.parse(localStorage.getItem(k)||"null")}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 {const j=store.get("bdoplanner");if(j){S={...DEF,...j.S};O={...O,...j.O}}}
@@ -533,7 +553,7 @@ async function refreshLive(manual){
 function syncControls(){
   $("#vp").checked=S.vp;$("#fame").value=String(S.fame);$("#ring").checked=S.ring;
   $("#mode-ask").setAttribute("aria-pressed",S.mode==="ask");$("#mode-bid").setAttribute("aria-pressed",S.mode==="bid");
-  for(const[k,id] of [["mastery","mastery"],["mpsec","mpsec"],["simple","s-simple"],["cup","s-cup"],["cook","s-cook"],["alch","s-alch"],["hours","hours"],["wait","wait"],["budget","budget"]])$("#"+id).value=S[k];
+  for(const[k,id] of [["mastery","mastery"],["mpsec","mpsec"],["simple","s-simple"],["cup","s-cup"],["cook","s-cook"],["alch","s-alch"],["hours","hours"],["wait","wait"],["budget","budget"],["pbudget","pbudget"],["pshare","pshare"],["pdays","pdays"],["phours","phours"]])$("#"+id).value=S[k];
   $("#sort").value=S.sort;$("#sfav").checked=!!S.sfav;$("#uc-on").setAttribute("aria-pressed",!!S.undercut);$("#uc-off").setAttribute("aria-pressed",!S.undercut);
   $("#chips").innerHTML=FILT.map(([k,l])=>`<button class="chip" data-f="${k}" aria-pressed="${S.filter===k}">${l}</button>`).join("");
 }
@@ -678,6 +698,59 @@ function salesDetail(r,c){const out=item(r.out);
     <div class="row2" style="max-width:420px"><div class="field"><label>Market sales per hour (your estimate)</label><input class="num${has(O.sold[r.out])?" edited":""}" type="number" min="0" step="any" data-sold="${r.out}" placeholder="${fmt(soldRate(r.out))}" value="${has(O.sold[r.out])?O.sold[r.out]:""}"></div></div>
   </div>`}
 
+function buildPlan(){
+  const share=Math.min(100,Math.max(1,S.pshare))/100,days=S.pdays,cand=[];
+  for(const r of D.recipes){const c=calc(r);const per=c.unitH*c.oq;if(!(per>0)||!(c.cost>0))continue;
+    const atQ=c.floor&&!c.undercut?c.queue:0,mkt=Math.max(0,c.rate*24*days*share-atQ*share);
+    cand.push({r,c,per,ratio:per/c.cost,mktUnits:mkt,stock:c.stockN,sec:c.sec})}
+  // Material prices rise as you buy more: cost of `units` more of an item after `from` already bought.
+  function ladder(id,from,units){const it=item(id);
+    if(has(O.price[id]))return+O.price[id]*units;if(it.v)return it.a*units;if(it.ns)return 0;if(S.mode==="bid")return(it.b||it.a)*units;
+    const bk=BOOK[id],maxP=it.hi||it.a;let skip=from,left=units,cost=0;
+    const lv=bk&&!bk.fail?bk.asks:[[noListing(it)?maxP:it.a,it.s||0]];
+    for(const[p,c] of lv){let avail=c;if(skip>0){const s2=Math.min(skip,avail);skip-=s2;avail-=s2}if(avail<=0)continue;const t=Math.min(left,avail);cost+=t*p;left-=t;if(!left)break}
+    if(left>0)cost+=left*Math.max(maxP,lv.length?lv[lv.length-1][0]:0);return cost}
+  const listed=id=>{const it=item(id),bk=BOOK[id];if(it.v||it.ns||has(O.price[id])||S.mode==="bid")return Infinity;return bk&&!bk.fail?bk.asks.reduce((t,a)=>t+a[1],0):(it.s??Infinity)};
+  // Try many exchange rates between crafting time and silver; keep the plan with the most profit.
+  function fill(lam){let money=S.pbudget,time=S.phours*3600;const used={},got={},plan=[];
+    const order=[...cand].sort((a,b)=>b.per/(b.c.cost+lam*b.sec)-a.per/(a.c.cost+lam*a.sec));
+    for(const x of order){const ins=insOf(x.r).map(([id,q0])=>[id,qtyOf(x.r,id,q0)]),rev=x.c.oq*x.c.saleP*kept();
+      const left=Math.max(0,x.mktUnits-(got[x.r.out]||0));let capN=Math.floor(left/x.c.oq);capN=Math.min(capN,Math.floor(time/x.sec));
+      for(const[id,q] of ins)if(q>0)capN=Math.min(capN,Math.floor((listed(id)-(used[id]||0))/q));
+      if(!(capN>=1))continue;
+      const chunk=Math.max(1,Math.ceil(capN/40));let n=0,spend=0,why="market";
+      while(n<capN){const k=Math.min(chunk,capN-n);let cst=0;for(const[id,q] of ins)cst+=ladder(id,(used[id]||0)+q*n,q*k);
+        if(cst>money){why="budget";break}if(k*rev-cst<=0){why="prices";break}
+        n+=k;spend+=cst;money-=cst}
+      if(n<1)continue;if(n===capN)why=capN===Math.floor(left/x.c.oq)?"market":capN===Math.floor((time+n*x.sec)/x.sec)?"time":"materials";
+      for(const[id,q] of ins)used[id]=(used[id]||0)+q*n;got[x.r.out]=(got[x.r.out]||0)+n*x.c.oq;time-=n*x.sec;
+      plan.push({...x,ratio:(n*rev-spend)/spend,n,spend,profit:n*rev-spend,why})}
+    return{plan,left:money,timeUsed:S.phours*3600-time,profit:plan.reduce((t,x)=>t+x.profit,0)}}
+  let best=fill(0);for(let e=0;e<=10;e+=0.5){const r=fill(Math.pow(10,e));if(r.profit>best.profit)best=r}
+  best.plan.sort((a,b)=>b.profit-a.profit);return best}
+function renderPlan(){
+  $("#pbudgetTxt").textContent=fmt(S.pbudget)+" silver";
+  const{plan,left,timeUsed}=buildPlan(),approxSpend=plan.reduce((t,x)=>t+x.spend,0);
+  const shop={};for(const x of plan)for(const[id,q0] of insOf(x.r)){const q=qtyOf(x.r,id,q0)*x.n;if(!shop[id])shop[id]={q:0};shop[id].q+=q}
+  const ids=Object.keys(shop),need=ids.filter(i=>!D.items[i].v&&!D.items[i].ns);
+  if(need.some(i=>!BOOK[i]||Date.now()-BOOK[i].at>=10*60e3))setTimeout(()=>loadBooks(need),30);
+  let exact=true;for(const id of ids){const bc=buyCost(id,shop[id].q);shop[id].bc=bc;if(bc.loading)exact=false}
+  const spend=ids.reduce((t,id)=>t+shop[id].bc.cost,0),revenue=plan.reduce((t,x)=>t+x.n*x.c.oq*x.c.saleP*kept(),0),profit=revenue-spend;
+  $("#planSum").innerHTML=`<div class="fbox"><span class="k">You spend</span><span class="v">${fmt(spend)}</span><span class="s">${exact?"exact, from current listings":"estimate · loading exact prices…"}${spend>S.pbudget?` · ${fmt(spend-S.pbudget)} over budget as prices climb`:` · ${fmt(S.pbudget-spend)} left over`}</span></div>
+    <div class="fbox"><span class="k">Crafting time</span><span class="v">${dur(timeUsed/3600)}</span><span class="s">${plan.length} different crafts</span></div>
+    <div class="fbox good"><span class="k">Expected profit</span><span class="v">${fmt(profit)}</span><span class="s">${spend>0?Math.round(profit/spend*100)+"% on what you spend":""} · after tax${exact&&Math.abs(approxSpend-spend)>approxSpend*0.01?` · ${fmt(spend-approxSpend)} more than at cheapest prices`:""}</span></div>`;
+  const W={market:"market",materials:"materials listed",budget:"your silver",time:"your time",prices:"rising material prices"};
+  $("#planList").innerHTML=plan.length?`<table class="plan"><tr><th>Craft</th><th>Crafts</th><th>Spend</th><th>Profit</th><th>Return</th><th>Capped by</th><th></th></tr>`+
+    plan.map(x=>`<tr><td><span class="mname">${esc(x.r.name)}</span><span class="msub">${x.r.via?`${viaRoute(x.r)==="buy"?"buy":"craft"} ${esc(item(x.r.via).n)} · `:""}${full(x.n*x.c.oq)} × ${esc(item(x.r.out).n)} at ${fmt(x.c.saleP)} · ${x.c.rate>0?"sells in ~"+dur(x.n*x.c.oq/(x.c.rate*Math.max(1,S.pshare)/100)):""}</span></td>
+      <td>${full(x.n)}</td><td>${fmt(x.spend)}</td><td class="tot">${fmt(x.profit)}</td><td>${Math.round(x.ratio*100)}%</td><td><span class="hint">${W[x.why]}</span></td>
+      <td><button class="btn" data-planopen="${x.r.id}" data-n="${x.n}">Open</button></td></tr>`).join("")+`</table>`
+    :`<div class="empty">Nothing fits this budget right now. Raise the silver or your share of buyers.</div>`;
+  ids.sort((a,b)=>shop[b].bc.cost-shop[a].bc.cost);
+  $("#planShop").innerHTML=ids.length?`<table class="mats"><tr><th>Material</th><th>Buy</th><th>Avg price</th><th>Cost</th></tr>`+ids.map(id=>{const it=item(id),sh=shop[id],bc=sh.bc;
+    const note=bc.short?`<span class="msub bad">${bc.short>=sh.q?"none":full(sh.q-bc.short)} listed · ${full(bc.short)} short${(bc.pre??it.pre)?` · ${about(bc.pre??it.pre)} pre-orders`:""}</span>`:bc.lv>1?`<span class="msub">price climbs from ${fmt(bc.low)} to ${fmt(bc.top)}</span>`:bc.loading?`<span class="msub">loading listings…</span>`:"";
+    return`<tr><td><span class="mname">${esc(it.n)}</span>${note}</td><td>${full(sh.q)}</td><td>${sh.q?full(bc.cost/sh.q):"–"}</td><td class="tot">${fmt(bc.cost)}</td></tr>`}).join("")+
+    `<tr class="total"><td>Total</td><td></td><td></td><td class="tot">${fmt(spend)}</td></tr></table>`:"";
+}
 function renderPrices(){
   const q=$("#pq").value.trim().toLowerCase(),only=$("#onlyEdited").checked,used={};
   for(const r of D.recipes){used[r.out]=(used[r.out]||0)+1;for(const[id] of r.ins)used[id]=(used[id]||0)+1}
@@ -698,21 +771,21 @@ function itemDetail(id){const makes=D.recipes.filter(r=>r.out==id),uses=D.recipe
 function render(){
   $("#kept").textContent=(kept()*100).toFixed(1)+"%";$("#perMP").textContent=perMP();renderStatus();
   $("#baseDate").textContent=new Date(D.seed.t[0]*1000).toLocaleDateString();
-  if(view==="crafts")renderCrafts();else if(view==="sales")renderSales();else renderPrices();
+  if(view==="crafts")renderCrafts();else if(view==="sales")renderSales();else if(view==="plan")renderPlan();else renderPrices();
 }
 function rerender(){const f=document.activeElement;let sel=null,pos=null;
   if(f&&f.dataset)for(const k of ["price","qty","oq","sold","batch"])if(f.dataset[k]!=null){sel=`[data-${k}="${f.dataset[k]}"]`;break}
   try{pos=f.selectionStart}catch(e){}
   render();if(sel){const n=document.querySelector(sel);if(n&&n!==f){if(f.isConnected===false&&f.tagName==="INPUT"){f.className=n.className;n.replaceWith(f);f.focus()}else{n.focus();try{if(pos!=null)n.setSelectionRange(pos,pos)}catch(e){}}}}}
-function setView(v){view=v;for(const t of ["crafts","sales","prices"]){$("#tab-"+t).setAttribute("aria-selected",t===v);const s=$("#view-"+t);s.hidden=t!==v;s.style.display=t===v?"flex":""}
+function setView(v){view=v;for(const t of ["crafts","sales","plan","prices"]){$("#tab-"+t).setAttribute("aria-selected",t===v);const s=$("#view-"+t);s.hidden=t!==v;s.style.display=t===v?"flex":""}
   try{history.replaceState(null,"",v==="crafts"?location.pathname:"#"+v)}catch(e){}render()}
 
 const num=(v,d)=>{const n=parseFloat(v);return isFinite(n)&&n>0?n:d};
 document.addEventListener("input",e=>{const t=e.target,ds=t.dataset||{};
   O.n=O.n||{};for(const[k,o] of [["price",O.price],["qty",O.qty],["oq",O.oq],["sold",O.sold],["batch",O.n]])if(ds[k]!=null){if(t.value==="")delete o[ds[k]];else o[ds[k]]=t.value;save();rerender();return}
   if(t.id==="q"||t.id==="pq"||t.id==="onlyEdited"){render();return}
-  const map={vp:"vp",ring:"ring",mastery:"mastery",mpsec:"mpsec","s-simple":"simple","s-cup":"cup","s-cook":"cook","s-alch":"alch",hours:"hours",wait:"wait",budget:"budget",sfav:"sfav"}[t.id];
-  if(!map)return;S[map]=t.type==="checkbox"?t.checked:map==="mastery"||map==="budget"?Math.max(0,parseFloat(t.value)||0):num(t.value,DEF[map]);save();rerender()});
+  const map={vp:"vp",ring:"ring",mastery:"mastery",mpsec:"mpsec","s-simple":"simple","s-cup":"cup","s-cook":"cook","s-alch":"alch",hours:"hours",wait:"wait",budget:"budget",sfav:"sfav",pbudget:"pbudget",pshare:"pshare",pdays:"pdays",phours:"phours"}[t.id];
+  if(!map)return;S[map]=t.type==="checkbox"?t.checked:map==="mastery"||map==="budget"||map==="pbudget"?Math.max(0,parseFloat(t.value)||0):num(t.value,DEF[map]);save();rerender()});
 document.addEventListener("change",e=>{const t=e.target;if(t.id==="sort"){S.sort=t.value;save();render()}else if(t.id==="fame"){S.fame=+t.value;save();render()}});
 document.addEventListener("click",e=>{const t=e.target;
   const tab=t.closest("[role=tab]");if(tab){setView(tab.id.slice(4));return}
@@ -721,6 +794,7 @@ document.addEventListener("click",e=>{const t=e.target;
   if(t.id==="mode-ask"||t.id==="mode-bid"){S.mode=t.id==="mode-bid"?"bid":"ask";save();syncControls();render();return}
   if(t.id==="reset"){S={...DEF};O={...O,price:{},qty:{},oq:{},sold:{},via:{}};save();syncControls();render();return}
   if(t.id==="clearPrices"){O.price={};save();render();return}
+  const po=t.closest("[data-planopen]");if(po){O.n=O.n||{};O.n[po.dataset.planopen]=po.dataset.n;save();open.add(po.dataset.planopen);S.filter="all";$("#q").value="";syncControls();setView("crafts");const n=document.querySelector(`[data-id="${po.dataset.planopen}"]`);if(n)n.scrollIntoView({block:"start"});return}
   const sn=t.closest("[data-setn]");if(sn){O.n=O.n||{};O.n[sn.dataset.setn]=sn.dataset.v;save();render();return}
   const fv=t.closest("[data-fav]");if(fv){const id=fv.dataset.fav;O.fav=O.fav||{};if(O.fav[id])delete O.fav[id];else O.fav[id]=1;save();render();return}
   const vb=t.closest("[data-via]");if(vb){O.via[vb.dataset.via]=vb.dataset.mode;save();render();return}
@@ -737,7 +811,7 @@ document.addEventListener("keydown",e=>{const t=e.target;if((e.key==="Enter"||e.
 
 mergeHist();
 {const c=store.get("bdoplanner.live");if(c&&c.items&&c.at>D.base.at){LIVE=c;liveState="live"}else liveState="off"}
-syncControls();setView(["sales","prices"].includes(location.hash.slice(1))?location.hash.slice(1):"crafts");
+syncControls();setView(["sales","plan","prices"].includes(location.hash.slice(1))?location.hash.slice(1):"crafts");
 setInterval(renderStatus,60000);
 if(!LIVE||LIVE.v!==2||Date.now()/1000-LIVE.at>1800)refreshLive();
 setInterval(()=>{if(document.visibilityState==="visible"&&!busy&&(!LIVE||Date.now()/1000-LIVE.at>1800))refreshLive()},60000);
